@@ -28,6 +28,24 @@ type ThermoworksData struct {
 	ProbeData []float64
 }
 
+func (td ThermoworksData) GetProbeData(pos ProbePosition) float64 {
+	return td.ProbeData[pos-1]
+}
+
+func (td ThermoworksData) appendProbeData(lineData []opts.LineData, pos ProbePosition) []opts.LineData {
+	if pos == ProbePositionNone {
+		return lineData
+	}
+	probeData := td.GetProbeData(pos)
+	if probeData <= 0 {
+		return lineData
+	}
+
+	return append(lineData, opts.LineData{
+		Value: []any{td.Time.Format(time.RFC3339), probeData},
+	})
+}
+
 func iterCSV(filename string) (iter.Seq2[ThermoworksData, error], func() error, error) {
 	file, err := os.Open(filename)
 	if err != nil {
@@ -139,6 +157,16 @@ type Event struct {
 	Time time.Time
 }
 
+type ProbePosition uint
+
+const (
+	ProbePositionNone = iota
+	ProbePosition1
+	ProbePosition2
+	ProbePosition3
+	ProbePosition4
+)
+
 type BreadData struct {
 	Name        string
 	Preferment  Stage
@@ -148,6 +176,11 @@ type BreadData struct {
 	Events []Event
 
 	Data []ThermoworksData
+
+	AmbientProbePosition ProbePosition
+	OvenProbePosition    ProbePosition
+	DoughProbePosition   ProbePosition
+	OtherProbePosition   ProbePosition
 }
 
 const (
@@ -257,33 +290,20 @@ func (bd *BreadData) LoadData(csvFile string) error {
 	return close()
 }
 
-func (bd BreadData) ChartData() ([]opts.LineData, []opts.LineData, []opts.LineData, []opts.LineData) {
-	var probe0Data, probe1Data, probe2Data, probe3Data []opts.LineData
-
+func (bd BreadData) ChartData() (
+	ambientTemperature []opts.LineData,
+	ovenTemperature []opts.LineData,
+	doughTemperature []opts.LineData,
+	other []opts.LineData,
+) {
 	for _, data := range bd.Data {
-		if data.ProbeData[0] > 0 {
-			probe0Data = append(probe0Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[0]},
-			})
-		}
-		if data.ProbeData[1] > 0 {
-			probe1Data = append(probe1Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[1]},
-			})
-		}
-		if data.ProbeData[2] > 0 {
-			probe2Data = append(probe2Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[2]},
-			})
-		}
-		if data.ProbeData[3] > 0 {
-			probe3Data = append(probe3Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[3]},
-			})
-		}
+		ambientTemperature = data.appendProbeData(ambientTemperature, bd.AmbientProbePosition)
+		ovenTemperature = data.appendProbeData(ovenTemperature, bd.OvenProbePosition)
+		doughTemperature = data.appendProbeData(doughTemperature, bd.DoughProbePosition)
+		other = data.appendProbeData(other, bd.OtherProbePosition)
 	}
 
-	return probe0Data, probe1Data, probe2Data, probe3Data
+	return
 }
 
 func (bd BreadData) Chart() (*charts.Line, error) {
@@ -355,8 +375,12 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 	return line, nil
 }
 
-func createBreadDataRealtime(start time.Time) BreadData {
-	bd := BreadData{Name: "Ciabatta"}
+func createExampleBreadData(start time.Time) BreadData {
+	bd := BreadData{
+		Name:                 "Ciabatta",
+		AmbientProbePosition: ProbePosition1,
+		OvenProbePosition:    ProbePosition2,
+	}
 
 	now := start
 
@@ -389,7 +413,7 @@ func createBreadDataRealtime(start time.Time) BreadData {
 
 func main() {
 	start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
-	data := createBreadDataRealtime(start)
+	data := createExampleBreadData(start)
 
 	log.Println("running server at http://localhost:8089")
 	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
