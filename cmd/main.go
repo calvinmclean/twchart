@@ -41,12 +41,11 @@ func createExampleBreadData(start time.Time) thermoworksbread.BreadData {
 	bd.AddEvents(thermoworksbread.Event{Name: "Shape", Time: now})
 	now = now.Add(2 * time.Minute)
 	bd.StartFinalProof(now, "")
-
 	now = now.Add(90 * time.Minute)
-	bd.EndFinalProof(now)
 
-	bd.AddEvents(thermoworksbread.Event{Name: "Bake", Time: now})
+	bd.StartBake(now, "")
 	now = now.Add(25 * time.Minute)
+	bd.EndBake(now)
 
 	bd.AddEvents(thermoworksbread.Event{Name: "Done", Time: now})
 

@@ -13,6 +13,7 @@ const (
 	prefermentColor  = "rgba(144, 238, 144, 0.4)"
 	bulkFermentColor = "rgba(255, 255, 102, 0.4)"
 	finalProofColor  = "rgba(173, 216, 230, 0.4)"
+	bakeColor        = "rgba(255, 173, 177, 0.4)"
 )
 
 type Stage struct {
@@ -57,6 +58,7 @@ type BreadData struct {
 	Preferment  Stage
 	BulkFerment Stage
 	FinalProof  Stage
+	Bake        Stage
 
 	Events []Event
 
@@ -100,8 +102,19 @@ func (bd *BreadData) StartFinalProof(t time.Time, name string) {
 	bd.BulkFerment.Finish(t)
 }
 
-func (bd *BreadData) EndFinalProof(t time.Time) {
+func (bd *BreadData) StartBake(t time.Time, name string) {
+	if name == "" {
+		name = "Bake"
+	}
+	bd.Bake = Stage{
+		Name:  name,
+		Start: t,
+	}
 	bd.FinalProof.Finish(t)
+}
+
+func (bd *BreadData) EndBake(t time.Time) {
+	bd.Bake.Finish(t)
 }
 
 func (bd *BreadData) AddEvents(event ...Event) {
@@ -138,6 +151,18 @@ func (bd *BreadData) SetEmptyTimes() {
 	if bd.FinalProof.End.IsZero() && !bd.FinalProof.Start.IsZero() && bd.FinalProof.Duration > 0 {
 		bd.FinalProof.End = bd.FinalProof.Start.Add(bd.FinalProof.Duration)
 	}
+	if bd.FinalProof.End.IsZero() && !bd.Bake.Start.IsZero() {
+		bd.FinalProof.End = bd.Bake.Start
+	}
+
+	// Then start of Bake
+	if bd.Bake.Start.IsZero() && !bd.FinalProof.End.IsZero() {
+		bd.Bake.Start = bd.FinalProof.End
+	}
+	// and end of Bake
+	if bd.Bake.End.IsZero() && !bd.Bake.Start.IsZero() && bd.Bake.Duration > 0 {
+		bd.Bake.End = bd.Bake.Start.Add(bd.Bake.Duration)
+	}
 
 	// set durations
 	if bd.Preferment.Duration == 0 {
@@ -148,6 +173,9 @@ func (bd *BreadData) SetEmptyTimes() {
 	}
 	if bd.FinalProof.Duration == 0 {
 		bd.FinalProof.Duration = bd.FinalProof.End.Sub(bd.FinalProof.Start)
+	}
+	if bd.Bake.Duration == 0 {
+		bd.Bake.Duration = bd.Bake.End.Sub(bd.Bake.Start)
 	}
 }
 
@@ -239,6 +267,7 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		charts.WithMarkAreaData(bd.Preferment.MarkArea(prefermentColor)),
 		charts.WithMarkAreaData(bd.BulkFerment.MarkArea(bulkFermentColor)),
 		charts.WithMarkAreaData(bd.FinalProof.MarkArea(finalProofColor)),
+		charts.WithMarkAreaData(bd.Bake.MarkArea(bakeColor)),
 	}
 
 	line.AddSeries("Ambient Temperature", probe0Data, options...).
