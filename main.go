@@ -1,0 +1,404 @@
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"io"
+	"iter"
+	"log"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
+
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/components"
+	"github.com/go-echarts/go-echarts/v2/opts"
+)
+
+func logRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("%s %s %s\n", r.RemoteAddr, r.Method, r.URL)
+		handler.ServeHTTP(w, r)
+	})
+}
+
+type ThermoworksData struct {
+	Time      time.Time
+	ProbeData []float64
+}
+
+func iterCSV(filename string) (iter.Seq2[ThermoworksData, error], func() error, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	reader := csv.NewReader(file)
+	reader.TrimLeadingSpace = true
+
+	// Read header
+	headers, err := reader.Read()
+	if err != nil {
+		_ = file.Close()
+		return nil, nil, err
+	}
+
+	if len(headers) < 2 || headers[0] != "DateTime" {
+		_ = file.Close()
+		return nil, nil, fmt.Errorf("unexpected header format")
+	}
+
+	return func(yield func(ThermoworksData, error) bool) {
+		for {
+			record, err := reader.Read()
+			if err == io.EOF {
+				return
+			}
+			if err != nil {
+				if !yield(ThermoworksData{}, err) {
+					return
+				}
+				continue
+			}
+
+			if len(record) < 1 {
+				continue
+			}
+
+			dt, err := time.ParseInLocation(time.DateTime, record[0], time.Local)
+			if err != nil {
+				if !yield(ThermoworksData{}, err) {
+					return
+				}
+				continue
+			}
+			dt = dt.Local()
+
+			probes := make([]float64, len(headers)-1)
+			for i := 1; i < len(headers); i++ {
+				if record[i] == "" {
+					probes[i-1] = -1 // or math.NaN() if you prefer
+					continue
+				}
+
+				val, err := strconv.ParseFloat(record[i], 64)
+				if err != nil {
+					if !yield(ThermoworksData{}, err) {
+						return
+					}
+					continue
+				}
+				probes[i-1] = val
+			}
+
+			data := ThermoworksData{
+				Time: dt, ProbeData: probes,
+			}
+			if !yield(data, nil) {
+				return
+			}
+		}
+	}, file.Close, nil
+}
+
+func parseCSVWithIter(filename string) ([]opts.LineData, []opts.LineData, *time.Time, error) {
+	var probe0Data, probe1Data []opts.LineData
+	var startTime *time.Time
+
+	csvData, close, err := iterCSV(filename)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	defer close()
+
+	for data, err := range csvData {
+		if err != nil {
+			log.Println("CSV ERR:", err)
+			continue
+		}
+
+		if startTime == nil {
+			startTime = &data.Time
+		}
+
+		if data.ProbeData[0] > 0 {
+			probe0Data = append(probe0Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[0]},
+			})
+		}
+		if data.ProbeData[1] > 0 {
+			probe1Data = append(probe1Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[1]},
+			})
+		}
+	}
+
+	return probe0Data, probe1Data, startTime, nil
+}
+
+type Stage struct {
+	Name     string
+	Start    time.Time
+	End      time.Time
+	Duration time.Duration
+}
+
+type Event struct {
+	Name string
+	Time time.Time
+}
+
+type BreadData struct {
+	Name        string
+	Preferment  Stage
+	BulkFerment Stage
+	FinalProof  Stage
+
+	Events []Event
+
+	CSVFilename string
+}
+
+const (
+	prefermentColor  = "rgba(144, 238, 144, 0.4)"
+	bulkFermentColor = "rgba(255, 255, 102, 0.4)"
+	finalProofColor  = "rgba(173, 216, 230, 0.4)"
+)
+
+func (bd *BreadData) AddEvents(event ...Event) {
+	bd.Events = append(bd.Events, event...)
+}
+
+// Fill in the gaps of time if some stages don't have start/end times
+func (bd *BreadData) SetEmptyTimes() {
+	// Start by setting end on Preferment
+	if bd.Preferment.End.IsZero() && !bd.Preferment.Start.IsZero() && bd.Preferment.Duration > 0 {
+		bd.Preferment.End = bd.Preferment.Start.Add(bd.Preferment.Duration)
+	}
+	if bd.Preferment.End.IsZero() && !bd.BulkFerment.Start.IsZero() {
+		bd.Preferment.End = bd.BulkFerment.Start
+	}
+
+	// Then set start on BulkFerment
+	if bd.BulkFerment.Start.IsZero() && !bd.Preferment.End.IsZero() {
+		bd.BulkFerment.Start = bd.Preferment.End
+	}
+	// and end on BulkFerment
+	if bd.BulkFerment.End.IsZero() && !bd.BulkFerment.Start.IsZero() && bd.BulkFerment.Duration > 0 {
+		bd.BulkFerment.End = bd.BulkFerment.Start.Add(bd.BulkFerment.Duration)
+	}
+	if bd.BulkFerment.End.IsZero() && !bd.FinalProof.Start.IsZero() {
+		bd.BulkFerment.End = bd.FinalProof.Start
+	}
+
+	// Then start of FinalProof
+	if bd.FinalProof.Start.IsZero() && !bd.BulkFerment.End.IsZero() {
+		bd.FinalProof.Start = bd.BulkFerment.End
+	}
+	// and end of FinalProof
+	if bd.FinalProof.End.IsZero() && !bd.FinalProof.Start.IsZero() && bd.FinalProof.Duration > 0 {
+		bd.FinalProof.End = bd.FinalProof.Start.Add(bd.FinalProof.Duration)
+	}
+
+	// set durations
+	if bd.Preferment.Duration == 0 {
+		bd.Preferment.Duration = bd.Preferment.End.Sub(bd.Preferment.Start)
+	}
+	if bd.BulkFerment.Duration == 0 {
+		bd.BulkFerment.Duration = bd.BulkFerment.End.Sub(bd.BulkFerment.Start)
+	}
+	if bd.FinalProof.Duration == 0 {
+		bd.FinalProof.Duration = bd.FinalProof.End.Sub(bd.FinalProof.Start)
+	}
+}
+
+func (bd BreadData) Chart() (*charts.Line, error) {
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithTitleOpts(opts.Title{
+			Title:    "Bread Baking Temperatures",
+			Subtitle: "tracking temperatures throughout the bread-making process",
+		}),
+		charts.WithXAxisOpts(opts.XAxis{
+			Type: "time",
+			AxisPointer: &opts.AxisPointer{
+				Show: opts.Bool(true),
+				Snap: opts.Bool(false),
+			},
+		}),
+		charts.WithTooltipOpts(opts.Tooltip{
+			Show:    opts.Bool(true),
+			Trigger: "item",
+		}),
+		charts.WithDataZoomOpts(opts.DataZoom{
+			Type:  "slider",
+			Start: 0,
+			End:   25,
+		}),
+	)
+
+	var probe0Data, probe1Data []opts.LineData
+	csvData, close, err := iterCSV(bd.CSVFilename)
+	if err != nil {
+		return nil, err
+	}
+	defer close()
+
+	for data, err := range csvData {
+		if err != nil {
+			log.Println("CSV ERR:", err)
+			continue
+		}
+
+		if data.ProbeData[0] > 0 {
+			probe0Data = append(probe0Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[0]},
+			})
+		}
+		if data.ProbeData[1] > 0 {
+			probe1Data = append(probe1Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[1]},
+			})
+		}
+	}
+
+	events := []opts.MarkLineNameXAxisItem{}
+	for _, event := range bd.Events {
+		events = append(events, opts.MarkLineNameXAxisItem{
+			Name:  event.Name,
+			XAxis: event.Time,
+		})
+	}
+
+	options := []charts.SeriesOpts{
+		charts.WithLineChartOpts(
+			opts.LineChart{
+				Smooth:     opts.Bool(true),
+				ShowSymbol: opts.Bool(false),
+			},
+		),
+		charts.WithMarkLineNameXAxisItemOpts(events...),
+		charts.WithMarkLineStyleOpts(opts.MarkLineStyle{
+			Symbol: []string{"none", "none"},
+			Label: &opts.Label{
+				Show:      opts.Bool(true),
+				Formatter: " ", // empty
+				// Formatter: "{b}",
+			},
+		}),
+		charts.WithMarkAreaData([]opts.MarkAreaData{
+			{
+				Name:  fmt.Sprintf("%s (%s)", bd.Preferment.Name, bd.Preferment.Duration),
+				XAxis: bd.Preferment.Start,
+				MarkAreaStyle: opts.MarkAreaStyle{
+					ItemStyle: &opts.ItemStyle{
+						Color: prefermentColor,
+					},
+					Label: &opts.Label{
+						Show: opts.Bool(true),
+					},
+				},
+			},
+			{
+				XAxis: bd.Preferment.End,
+			},
+		}),
+		charts.WithMarkAreaData([]opts.MarkAreaData{
+			{
+				Name:  fmt.Sprintf("%s (%s)", bd.BulkFerment.Name, bd.BulkFerment.Duration),
+				XAxis: bd.BulkFerment.Start,
+				MarkAreaStyle: opts.MarkAreaStyle{
+					ItemStyle: &opts.ItemStyle{
+						Color: bulkFermentColor,
+					},
+				},
+			},
+			{
+				XAxis: bd.BulkFerment.End,
+			},
+		}),
+		charts.WithMarkAreaData([]opts.MarkAreaData{
+			{
+				Name:  fmt.Sprintf("%s (%s)", bd.FinalProof.Name, bd.FinalProof.Duration),
+				XAxis: bd.FinalProof.Start,
+				MarkAreaStyle: opts.MarkAreaStyle{
+					ItemStyle: &opts.ItemStyle{
+						Color: finalProofColor,
+					},
+				},
+			},
+			{
+				XAxis: bd.FinalProof.End,
+			},
+		}),
+	}
+
+	line.AddSeries("Ambient Temperature", probe0Data, options...).
+		AddSeries("Oven Temperature", probe1Data,
+			charts.WithLineChartOpts(
+				opts.LineChart{
+					Smooth:     opts.Bool(true),
+					ShowSymbol: opts.Bool(false),
+				},
+			),
+		)
+
+	return line, nil
+}
+
+func main() {
+	start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
+	data := BreadData{
+		Name: "Ciabatta",
+		Preferment: Stage{
+			Name:  "Biga fermentation",
+			Start: start.Add(5 * time.Minute),
+			End:   time.Date(2025, time.May, 25, 07, 51, 0, 0, time.Local),
+		},
+		BulkFerment: Stage{
+			Name:     "Bulk ferment",
+			Duration: 2 * time.Hour,
+		},
+		FinalProof: Stage{
+			Name:     "Shape and proof",
+			Duration: 90 * time.Minute,
+		},
+		CSVFilename: "chart.csv",
+	}
+	data.AddEvents(
+		Event{
+			Name: "Mixed Biga",
+			Time: data.Preferment.Start.Add(-3 * time.Minute),
+		},
+		Event{
+			Name: "Mixed final dough",
+			Time: data.Preferment.End,
+		},
+		Event{
+			Name: "Performed 12 stretch and folds",
+			Time: data.BulkFerment.Start.Add(1 * time.Hour),
+		},
+		Event{
+			Name: "Shaped",
+			Time: data.BulkFerment.Start.Add(2 * time.Hour),
+		},
+		Event{
+			Name: "Started bake",
+			Time: data.FinalProof.Start.Add(90 * time.Minute),
+		},
+	)
+	data.SetEmptyTimes()
+
+	log.Println("running server at http://localhost:8089")
+	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		chart, err := data.Chart()
+		if err != nil {
+			panic(err)
+		}
+
+		page := components.NewPage()
+		page.AddCharts(chart)
+		page.Render(io.MultiWriter(w))
+	}))))
+}
