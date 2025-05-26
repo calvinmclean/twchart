@@ -114,6 +114,26 @@ func (s *Stage) Finish(t time.Time) {
 	s.Duration = s.End.Sub(s.Start)
 }
 
+func (s *Stage) MarkArea(color string) []opts.MarkAreaData {
+	return []opts.MarkAreaData{
+		{
+			Name:  fmt.Sprintf("%s (%s)", s.Name, s.Duration),
+			XAxis: s.Start,
+			MarkAreaStyle: opts.MarkAreaStyle{
+				ItemStyle: &opts.ItemStyle{
+					Color: color,
+				},
+				Label: &opts.Label{
+					Show: opts.Bool(true),
+				},
+			},
+		},
+		{
+			XAxis: s.End,
+		},
+	}
+}
+
 type Event struct {
 	Name string
 	Time time.Time
@@ -317,51 +337,9 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 				// Formatter: "{b}",
 			},
 		}),
-		charts.WithMarkAreaData([]opts.MarkAreaData{
-			{
-				Name:  fmt.Sprintf("%s (%s)", bd.Preferment.Name, bd.Preferment.Duration),
-				XAxis: bd.Preferment.Start,
-				MarkAreaStyle: opts.MarkAreaStyle{
-					ItemStyle: &opts.ItemStyle{
-						Color: prefermentColor,
-					},
-					Label: &opts.Label{
-						Show: opts.Bool(true),
-					},
-				},
-			},
-			{
-				XAxis: bd.Preferment.End,
-			},
-		}),
-		charts.WithMarkAreaData([]opts.MarkAreaData{
-			{
-				Name:  fmt.Sprintf("%s (%s)", bd.BulkFerment.Name, bd.BulkFerment.Duration),
-				XAxis: bd.BulkFerment.Start,
-				MarkAreaStyle: opts.MarkAreaStyle{
-					ItemStyle: &opts.ItemStyle{
-						Color: bulkFermentColor,
-					},
-				},
-			},
-			{
-				XAxis: bd.BulkFerment.End,
-			},
-		}),
-		charts.WithMarkAreaData([]opts.MarkAreaData{
-			{
-				Name:  fmt.Sprintf("%s (%s)", bd.FinalProof.Name, bd.FinalProof.Duration),
-				XAxis: bd.FinalProof.Start,
-				MarkAreaStyle: opts.MarkAreaStyle{
-					ItemStyle: &opts.ItemStyle{
-						Color: finalProofColor,
-					},
-				},
-			},
-			{
-				XAxis: bd.FinalProof.End,
-			},
-		}),
+		charts.WithMarkAreaData(bd.Preferment.MarkArea(prefermentColor)),
+		charts.WithMarkAreaData(bd.BulkFerment.MarkArea(bulkFermentColor)),
+		charts.WithMarkAreaData(bd.FinalProof.MarkArea(finalProofColor)),
 	}
 
 	line.AddSeries("Ambient Temperature", probe0Data, options...).
@@ -378,9 +356,7 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 }
 
 func createBreadDataRealtime(start time.Time) BreadData {
-	bd := BreadData{
-		Name: "Ciabatta",
-	}
+	bd := BreadData{Name: "Ciabatta"}
 
 	now := start
 
@@ -388,7 +364,7 @@ func createBreadDataRealtime(start time.Time) BreadData {
 	now = now.Add(3 * time.Minute)
 
 	bd.StartPreferment(now, "Biga Fermentation")
-	now = now.Add(12 * time.Hour)
+	now = now.Add(11 * time.Hour)
 
 	bd.StartBulkFerment(now, "")
 	now = now.Add(1 * time.Hour)
@@ -409,49 +385,6 @@ func createBreadDataRealtime(start time.Time) BreadData {
 	bd.AddEvents(Event{Name: "Done", Time: now})
 
 	return bd
-}
-
-func createBreadData(start time.Time) BreadData {
-	data := BreadData{
-		Name: "Ciabatta",
-		Preferment: Stage{
-			Name:  "Biga fermentation",
-			Start: start.Add(5 * time.Minute),
-			End:   time.Date(2025, time.May, 25, 07, 51, 0, 0, time.Local),
-		},
-		BulkFerment: Stage{
-			Name:     "Bulk ferment",
-			Duration: 2 * time.Hour,
-		},
-		FinalProof: Stage{
-			Name:     "Shape and proof",
-			Duration: 90 * time.Minute,
-		},
-	}
-	data.AddEvents(
-		Event{
-			Name: "Mixed Biga",
-			Time: data.Preferment.Start.Add(-3 * time.Minute),
-		},
-		Event{
-			Name: "Mixed final dough",
-			Time: data.Preferment.End,
-		},
-		Event{
-			Name: "Performed 12 stretch and folds",
-			Time: data.BulkFerment.Start.Add(1 * time.Hour),
-		},
-		Event{
-			Name: "Shaped",
-			Time: data.BulkFerment.Start.Add(2 * time.Hour),
-		},
-		Event{
-			Name: "Started bake",
-			Time: data.FinalProof.Start.Add(90 * time.Minute),
-		},
-	)
-	data.SetEmptyTimes()
-	return data
 }
 
 func main() {
