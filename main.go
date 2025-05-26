@@ -102,41 +102,6 @@ func iterCSV(filename string) (iter.Seq2[ThermoworksData, error], func() error, 
 	}, file.Close, nil
 }
 
-func parseCSVWithIter(filename string) ([]opts.LineData, []opts.LineData, *time.Time, error) {
-	var probe0Data, probe1Data []opts.LineData
-	var startTime *time.Time
-
-	csvData, close, err := iterCSV(filename)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	defer close()
-
-	for data, err := range csvData {
-		if err != nil {
-			log.Println("CSV ERR:", err)
-			continue
-		}
-
-		if startTime == nil {
-			startTime = &data.Time
-		}
-
-		if data.ProbeData[0] > 0 {
-			probe0Data = append(probe0Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[0]},
-			})
-		}
-		if data.ProbeData[1] > 0 {
-			probe1Data = append(probe1Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[1]},
-			})
-		}
-	}
-
-	return probe0Data, probe1Data, startTime, nil
-}
-
 type Stage struct {
 	Name     string
 	Start    time.Time
@@ -162,7 +127,7 @@ type BreadData struct {
 
 	Events []Event
 
-	CSVFilename string
+	Data []ThermoworksData
 }
 
 const (
@@ -254,6 +219,53 @@ func (bd *BreadData) SetEmptyTimes() {
 	}
 }
 
+func (bd *BreadData) LoadData(csvFile string) error {
+	csvData, close, err := iterCSV(csvFile)
+	if err != nil {
+		return err
+	}
+
+	for data, err := range csvData {
+		if err != nil {
+			log.Println("CSV ERR:", err)
+			continue
+		}
+
+		bd.Data = append(bd.Data, data)
+	}
+
+	return close()
+}
+
+func (bd BreadData) ChartData() ([]opts.LineData, []opts.LineData, []opts.LineData, []opts.LineData) {
+	var probe0Data, probe1Data, probe2Data, probe3Data []opts.LineData
+
+	for _, data := range bd.Data {
+		if data.ProbeData[0] > 0 {
+			probe0Data = append(probe0Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[0]},
+			})
+		}
+		if data.ProbeData[1] > 0 {
+			probe1Data = append(probe1Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[1]},
+			})
+		}
+		if data.ProbeData[2] > 0 {
+			probe2Data = append(probe2Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[2]},
+			})
+		}
+		if data.ProbeData[3] > 0 {
+			probe3Data = append(probe3Data, opts.LineData{
+				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[3]},
+			})
+		}
+	}
+
+	return probe0Data, probe1Data, probe2Data, probe3Data
+}
+
 func (bd BreadData) Chart() (*charts.Line, error) {
 	line := charts.NewLine()
 	line.SetGlobalOptions(
@@ -279,30 +291,7 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		}),
 	)
 
-	var probe0Data, probe1Data []opts.LineData
-	csvData, close, err := iterCSV(bd.CSVFilename)
-	if err != nil {
-		return nil, err
-	}
-	defer close()
-
-	for data, err := range csvData {
-		if err != nil {
-			log.Println("CSV ERR:", err)
-			continue
-		}
-
-		if data.ProbeData[0] > 0 {
-			probe0Data = append(probe0Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[0]},
-			})
-		}
-		if data.ProbeData[1] > 0 {
-			probe1Data = append(probe1Data, opts.LineData{
-				Value: []any{data.Time.Format(time.RFC3339), data.ProbeData[1]},
-			})
-		}
-	}
+	probe0Data, probe1Data, _, _ := bd.ChartData()
 
 	events := []opts.MarkLineNameXAxisItem{}
 	for _, event := range bd.Events {
@@ -390,8 +379,7 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 
 func createBreadDataRealtime(start time.Time) BreadData {
 	bd := BreadData{
-		Name:        "Ciabatta",
-		CSVFilename: "chart.csv",
+		Name: "Ciabatta",
 	}
 
 	now := start
@@ -439,7 +427,6 @@ func createBreadData(start time.Time) BreadData {
 			Name:     "Shape and proof",
 			Duration: 90 * time.Minute,
 		},
-		CSVFilename: "chart.csv",
 	}
 	data.AddEvents(
 		Event{
@@ -473,6 +460,11 @@ func main() {
 
 	log.Println("running server at http://localhost:8089")
 	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		err := data.LoadData("chart.csv")
+		if err != nil {
+			panic(err)
+		}
+
 		chart, err := data.Chart()
 		if err != nil {
 			panic(err)
