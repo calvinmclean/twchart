@@ -144,6 +144,11 @@ type Stage struct {
 	Duration time.Duration
 }
 
+func (s *Stage) Finish(t time.Time) {
+	s.End = t
+	s.Duration = s.End.Sub(s.Start)
+}
+
 type Event struct {
 	Name string
 	Time time.Time
@@ -165,6 +170,42 @@ const (
 	bulkFermentColor = "rgba(255, 255, 102, 0.4)"
 	finalProofColor  = "rgba(173, 216, 230, 0.4)"
 )
+
+func (bd *BreadData) StartPreferment(t time.Time, name string) {
+	if name == "" {
+		name = "Preferment"
+	}
+	bd.Preferment = Stage{
+		Name:  name,
+		Start: t,
+	}
+}
+
+func (bd *BreadData) StartBulkFerment(t time.Time, name string) {
+	if name == "" {
+		name = "Bulk Fermentation"
+	}
+	bd.BulkFerment = Stage{
+		Name:  name,
+		Start: t,
+	}
+	bd.Preferment.Finish(t)
+}
+
+func (bd *BreadData) StartFinalProof(t time.Time, name string) {
+	if name == "" {
+		name = "Final Proof"
+	}
+	bd.FinalProof = Stage{
+		Name:  name,
+		Start: t,
+	}
+	bd.BulkFerment.Finish(t)
+}
+
+func (bd *BreadData) EndFinalProof(t time.Time) {
+	bd.FinalProof.Finish(t)
+}
 
 func (bd *BreadData) AddEvents(event ...Event) {
 	bd.Events = append(bd.Events, event...)
@@ -347,8 +388,42 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 	return line, nil
 }
 
-func main() {
-	start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
+func createBreadDataRealtime(start time.Time) BreadData {
+	bd := BreadData{
+		Name:        "Ciabatta",
+		CSVFilename: "chart.csv",
+	}
+
+	now := start
+
+	bd.AddEvents(Event{Name: "Mix biga", Time: now})
+	now = now.Add(3 * time.Minute)
+
+	bd.StartPreferment(now, "Biga Fermentation")
+	now = now.Add(12 * time.Hour)
+
+	bd.StartBulkFerment(now, "")
+	now = now.Add(1 * time.Hour)
+
+	bd.AddEvents(Event{Name: "12 stretch and folds", Time: now})
+	now = now.Add(1 * time.Hour)
+
+	bd.AddEvents(Event{Name: "Shape", Time: now})
+	now = now.Add(2 * time.Minute)
+	bd.StartFinalProof(now, "")
+
+	now = now.Add(90 * time.Minute)
+	bd.EndFinalProof(now)
+
+	bd.AddEvents(Event{Name: "Bake", Time: now})
+	now = now.Add(25 * time.Minute)
+
+	bd.AddEvents(Event{Name: "Done", Time: now})
+
+	return bd
+}
+
+func createBreadData(start time.Time) BreadData {
 	data := BreadData{
 		Name: "Ciabatta",
 		Preferment: Stage{
@@ -389,6 +464,12 @@ func main() {
 		},
 	)
 	data.SetEmptyTimes()
+	return data
+}
+
+func main() {
+	start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
+	data := createBreadDataRealtime(start)
 
 	log.Println("running server at http://localhost:8089")
 	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
