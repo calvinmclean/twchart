@@ -26,28 +26,28 @@ func createExampleBreadData(start time.Time) thermoworksbread.BreadData {
 
 	now := start
 
-	bd.AddEvents(thermoworksbread.Event{Name: "Mix biga", Time: now})
+	bd.AddEvents(thermoworksbread.Event{Note: "Mix biga", Time: now})
 	now = now.Add(3 * time.Minute)
 
-	bd.StartPreferment(now, "Biga Fermentation")
+	bd.StartPreferment(now)
 	now = now.Add(11 * time.Hour)
 
-	bd.StartBulkFerment(now, "")
+	bd.StartBulkFerment(now)
 	now = now.Add(1 * time.Hour)
 
-	bd.AddEvents(thermoworksbread.Event{Name: "12 stretch and folds", Time: now})
+	bd.AddEvents(thermoworksbread.Event{Note: "12 stretch and folds", Time: now})
 	now = now.Add(1 * time.Hour)
 
-	bd.AddEvents(thermoworksbread.Event{Name: "Shape", Time: now})
+	bd.AddEvents(thermoworksbread.Event{Note: "Shape", Time: now})
 	now = now.Add(2 * time.Minute)
-	bd.StartFinalProof(now, "")
+	bd.StartFinalProof(now)
 	now = now.Add(90 * time.Minute)
 
-	bd.StartBake(now, "")
+	bd.StartBake(now)
 	now = now.Add(25 * time.Minute)
 	bd.EndBake(now)
 
-	bd.AddEvents(thermoworksbread.Event{Name: "Done", Time: now})
+	bd.AddEvents(thermoworksbread.Event{Note: "Done", Time: now})
 
 	return bd
 }
