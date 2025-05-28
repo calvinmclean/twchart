@@ -1,8 +1,6 @@
 package thermoworksbread
 
 import (
-	"bufio"
-	"bytes"
 	"encoding"
 	"errors"
 	"fmt"
@@ -22,10 +20,9 @@ func (bd *BreadData) Write(p []byte) (int, error) {
 // UnmarshalText parses the input bytes into the BreadData struct
 func (bd *BreadData) UnmarshalText(input []byte) error {
 	var currentDate time.Time
-	scanner := bufio.NewScanner(bytes.NewReader(input))
-	for scanner.Scan() {
-		line := scanner.Text()
-		if len(strings.TrimSpace(line)) == 0 {
+	for _, line := range strings.Split(string(input), "\n") {
+		line = strings.TrimSpace(line)
+		if len(line) == 0 {
 			continue
 		}
 
@@ -102,11 +99,6 @@ func (bd *BreadData) UnmarshalText(input []byte) error {
 				return fmt.Errorf("error parsing other probe: %w", err)
 			}
 		}
-	}
-
-	err := scanner.Err()
-	if err != nil {
-		return fmt.Errorf("error scanning: %w", err)
 	}
 
 	return nil
