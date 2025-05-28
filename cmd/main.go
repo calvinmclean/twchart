@@ -1,9 +1,11 @@
 package main
 
 import (
+	"flag"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	thermoworksbread "github.com/calvinmclean/thermoworks-bread"
@@ -53,17 +55,56 @@ func createExampleBreadData(start time.Time) thermoworksbread.BreadData {
 }
 
 func main() {
-	start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
-	data := createExampleBreadData(start)
+	var filename string
+	var example, stdin bool
+	flag.StringVar(&filename, "file", "", "filename to read BreadData from")
+	flag.BoolVar(&example, "example", false, "use example data")
+	flag.BoolVar(&stdin, "stdin", false, "read from stdin")
+	flag.Parse()
+
+	var bd thermoworksbread.BreadData
+	switch {
+	case filename != "":
+		f, err := os.Open(filename)
+		if err != nil {
+			log.Fatalf("error opening file %q: %v", filename, err)
+		}
+		defer f.Close()
+
+		_, err = io.Copy(&bd, f)
+		if err != nil {
+			log.Fatalf("error parsing BreadData: %v", err)
+		}
+
+		bd.AmbientProbePosition = thermoworksbread.ProbePosition1
+		bd.OvenProbePosition = thermoworksbread.ProbePosition2
+	case stdin:
+		input, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatalf("error reading stdin: %v", err)
+		}
+
+		err = bd.UnmarshalText(input)
+		if err != nil {
+			log.Fatalf("error parsing BreadData: %v", err)
+		}
+
+		bd.AmbientProbePosition = thermoworksbread.ProbePosition1
+		bd.OvenProbePosition = thermoworksbread.ProbePosition2
+	case example:
+		start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
+		bd = createExampleBreadData(start)
+	}
+
+	err := bd.LoadData("chart.csv")
+	if err != nil {
+		panic(err)
+	}
 
 	log.Println("running server at http://localhost:8089")
 	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		err := data.LoadData("chart.csv")
-		if err != nil {
-			panic(err)
-		}
 
-		chart, err := data.Chart()
+		chart, err := bd.Chart()
 		if err != nil {
 			panic(err)
 		}

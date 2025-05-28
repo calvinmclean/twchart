@@ -1,6 +1,8 @@
 package thermoworksbread
 
 import (
+	"bytes"
+	"io"
 	"testing"
 	"time"
 
@@ -28,7 +30,9 @@ Done: 10:55AM
 Note: 12:00PM: bread is delicious and crunchy
 `
 
-	bd, err := ParseBreadData([]byte(input))
+	var bd BreadData
+	// err := bd.UnmarshalText([]byte(input))
+	_, err := io.Copy(&bd, bytes.NewReader([]byte(input)))
 	assert.NoError(t, err)
 	assert.Equal(t, BreadData{
 		Name: "Ciabatta",

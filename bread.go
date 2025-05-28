@@ -54,6 +54,7 @@ type Event struct {
 
 type BreadData struct {
 	Name        string
+	Date        time.Time
 	Preferment  Stage
 	BulkFerment Stage
 	FinalProof  Stage
