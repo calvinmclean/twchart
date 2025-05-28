@@ -13,6 +13,11 @@ func TestParseBreadData(t *testing.T) {
 	input := `Ciabatta
 Date: 2025-05-24
 
+Ambient Probe: 1
+Oven Probe: 2
+Dough Probe: 3
+Other Probe: 4
+
 Note: 6:50PM: preparing to make biga
 
 Preferment: 6:51PM
@@ -67,5 +72,9 @@ Note: 12:00PM: bread is delicious and crunchy
 			{Note: "shaped dough", Time: time.Date(2025, time.May, 25, 9, 0, 0, 0, time.Local)},
 			{Note: "bread is delicious and crunchy", Time: time.Date(2025, time.May, 25, 12, 0, 0, 0, time.Local)},
 		},
+		AmbientProbePosition: ProbePosition1,
+		OvenProbePosition:    ProbePosition2,
+		DoughProbePosition:   ProbePosition3,
+		OtherProbePosition:   ProbePosition4,
 	}, bd)
 }

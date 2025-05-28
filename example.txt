@@ -1,6 +1,9 @@
 Ciabatta
 Date: 2025-05-24
 
+Ambient Probe: 1
+Oven Probe: 2
+
 Note: 8:10PM: preparing to make biga
 
 Preferment: 8:10PM

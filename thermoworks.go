@@ -12,8 +12,6 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
-type ProbePosition uint
-
 const (
 	ProbePositionNone = iota
 	ProbePosition1
@@ -21,6 +19,22 @@ const (
 	ProbePosition3
 	ProbePosition4
 )
+
+type ProbePosition uint
+
+func (pp *ProbePosition) UnmarshalText(input []byte) error {
+	val, err := strconv.Atoi(string(input))
+	if err != nil {
+		return err
+	}
+
+	if val < ProbePositionNone || val > ProbePosition4 {
+		return fmt.Errorf("invalid ProbePosition: %d", val)
+	}
+
+	*pp = ProbePosition(val)
+	return nil
+}
 
 type ThermoworksData struct {
 	Time      time.Time

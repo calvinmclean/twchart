@@ -81,6 +81,26 @@ func (bd *BreadData) UnmarshalText(input []byte) error {
 			if err != nil {
 				return fmt.Errorf("error parsing bake: %w", err)
 			}
+		case "ambient probe":
+			err := bd.AmbientProbePosition.UnmarshalText([]byte(value))
+			if err != nil {
+				return fmt.Errorf("error parsing ambient probe: %w", err)
+			}
+		case "oven probe":
+			err := bd.OvenProbePosition.UnmarshalText([]byte(value))
+			if err != nil {
+				return fmt.Errorf("error parsing oven probe: %w", err)
+			}
+		case "dough probe":
+			err := bd.DoughProbePosition.UnmarshalText([]byte(value))
+			if err != nil {
+				return fmt.Errorf("error parsing dough probe: %w", err)
+			}
+		case "other probe":
+			err := bd.OtherProbePosition.UnmarshalText([]byte(value))
+			if err != nil {
+				return fmt.Errorf("error parsing other probe: %w", err)
+			}
 		}
 	}
 

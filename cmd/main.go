@@ -75,9 +75,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("error parsing BreadData: %v", err)
 		}
-
-		bd.AmbientProbePosition = thermoworksbread.ProbePosition1
-		bd.OvenProbePosition = thermoworksbread.ProbePosition2
 	case stdin:
 		input, err := io.ReadAll(os.Stdin)
 		if err != nil {
@@ -88,9 +85,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("error parsing BreadData: %v", err)
 		}
-
-		bd.AmbientProbePosition = thermoworksbread.ProbePosition1
-		bd.OvenProbePosition = thermoworksbread.ProbePosition2
 	case example:
 		start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
 		bd = createExampleBreadData(start)
