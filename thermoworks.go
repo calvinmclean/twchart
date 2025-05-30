@@ -51,7 +51,9 @@ func (td ThermoworksData) appendProbeData(lineData []opts.LineData, pos ProbePos
 	}
 	probeData := td.GetProbeData(pos)
 	if probeData <= 0 {
-		return lineData
+		return append(lineData, opts.LineData{
+			Value: []any{td.Time.Format(time.RFC3339), nil},
+		})
 	}
 
 	return append(lineData, opts.LineData{

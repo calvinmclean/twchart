@@ -79,7 +79,7 @@ func (bd *BreadData) StartPreferment(t time.Time) {
 
 func (bd *BreadData) StartBulkFerment(t time.Time) {
 	bd.BulkFerment = Stage{
-		Name:  "Bulk Fermentation",
+		Name:  "Bulk Ferment",
 		Start: t,
 	}
 	bd.Preferment.Finish(t)

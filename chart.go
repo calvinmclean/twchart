@@ -50,7 +50,7 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		}),
 	)
 
-	probe0Data, probe1Data, _, _ := bd.ChartData()
+	ambientTemperature, ovenTemperature, doughTemperature, otherTemperature := bd.ChartData()
 
 	events := []opts.MarkLineNameXAxisItem{}
 	for _, event := range bd.Events {
@@ -60,13 +60,17 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		})
 	}
 
-	options := []charts.SeriesOpts{
+	baseOpts := []charts.SeriesOpts{
 		charts.WithLineChartOpts(
 			opts.LineChart{
-				Smooth:     opts.Bool(true),
-				ShowSymbol: opts.Bool(false),
+				Smooth:       opts.Bool(true),
+				ShowSymbol:   opts.Bool(false),
+				ConnectNulls: opts.Bool(false),
 			},
 		),
+	}
+
+	ambientOpts := append(baseOpts, []charts.SeriesOpts{
 		charts.WithMarkLineNameXAxisItemOpts(events...),
 		charts.WithMarkLineStyleOpts(opts.MarkLineStyle{
 			Symbol: []string{"none", "none"},
@@ -80,17 +84,12 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		charts.WithMarkAreaData(bd.BulkFerment.MarkArea(bulkFermentColor)),
 		charts.WithMarkAreaData(bd.FinalProof.MarkArea(finalProofColor)),
 		charts.WithMarkAreaData(bd.Bake.MarkArea(bakeColor)),
-	}
+	}...)
 
-	line.AddSeries("Ambient Temperature", probe0Data, options...).
-		AddSeries("Oven Temperature", probe1Data,
-			charts.WithLineChartOpts(
-				opts.LineChart{
-					Smooth:     opts.Bool(true),
-					ShowSymbol: opts.Bool(false),
-				},
-			),
-		)
+	line.AddSeries("Ambient Temperature", ambientTemperature, ambientOpts...).
+		AddSeries("Dough Temperature", doughTemperature, baseOpts...).
+		AddSeries("Oven Temperature", ovenTemperature, baseOpts...).
+		AddSeries("other Temperature", otherTemperature, baseOpts...)
 
 	return line, nil
 }

@@ -48,7 +48,7 @@ Note: 12:00PM: bread is delicious and crunchy
 			Duration: 12*time.Hour + 9*time.Minute,
 		},
 		BulkFerment: Stage{
-			Name:     "Bulk Fermentation",
+			Name:     "Bulk Ferment",
 			Start:    time.Date(2025, time.May, 25, 7, 00, 0, 0, time.Local),
 			End:      time.Date(2025, time.May, 25, 9, 00, 0, 0, time.Local),
 			Duration: 2 * time.Hour,

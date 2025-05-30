@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	thermoworksbread "github.com/calvinmclean/thermoworks-bread"
@@ -90,7 +91,11 @@ func main() {
 		bd = createExampleBreadData(start)
 	}
 
-	err := bd.LoadData("chart.csv")
+	chartFilename := "chart.csv"
+	if filename != "" {
+		chartFilename = strings.ReplaceAll(filename, ".txt", ".csv")
+	}
+	err := bd.LoadData(chartFilename)
 	if err != nil {
 		panic(err)
 	}
