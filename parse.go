@@ -46,6 +46,7 @@ func (bd *BreadData) UnmarshalText(input []byte) error {
 			if err != nil {
 				return fmt.Errorf("error parsing date: %w", err)
 			}
+			bd.Date = currentDate
 		case "note":
 			parsedTime, note, err := parseNote(value, currentDate)
 			if err != nil {

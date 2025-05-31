@@ -41,6 +41,7 @@ Note: 12:00PM: bread is delicious and crunchy
 	assert.NoError(t, err)
 	assert.Equal(t, BreadData{
 		Name: "Ciabatta",
+		Date: time.Date(2025, time.May, 24, 0, 0, 0, 0, time.Local),
 		Preferment: Stage{
 			Name:     "Preferment",
 			Start:    time.Date(2025, time.May, 24, 18, 51, 0, 0, time.Local),
