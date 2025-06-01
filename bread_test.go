@@ -35,11 +35,11 @@ Done: 10:55AM
 Note: 12:00PM: bread is delicious and crunchy
 `
 
-	var bd BreadData
-	// err := bd.UnmarshalText([]byte(input))
+	var bd Session
+	// err := s.UnmarshalText([]byte(input))
 	_, err := io.Copy(&bd, bytes.NewReader([]byte(input)))
 	assert.NoError(t, err)
-	assert.Equal(t, BreadData{
+	assert.Equal(t, Session{
 		Name: "Ciabatta",
 		Date: time.Date(2025, time.May, 24, 0, 0, 0, 0, time.Local),
 		Stages: []Stage{

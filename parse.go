@@ -7,16 +7,16 @@ import (
 	"time"
 )
 
-var _ encoding.TextUnmarshaler = &BreadData{}
-var _ io.Writer = &BreadData{}
+var _ encoding.TextUnmarshaler = &Session{}
+var _ io.Writer = &Session{}
 
 // Write writes data from p into the BreadData struct
-func (bd *BreadData) Write(p []byte) (int, error) {
-	return len(p), bd.UnmarshalText(p)
+func (s *Session) Write(p []byte) (int, error) {
+	return len(p), s.UnmarshalText(p)
 }
 
 // UnmarshalText parses the input bytes into the BreadData struct
-func (bd *BreadData) UnmarshalText(input []byte) error {
+func (s *Session) UnmarshalText(input []byte) error {
 	var currentDate time.Time
 	for _, line := range bytes.Split(input, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
@@ -28,7 +28,7 @@ func (bd *BreadData) UnmarshalText(input []byte) error {
 		if err != nil {
 			return err
 		}
-		result.AddToSession(bd)
+		result.AddToSession(s)
 
 		currentDate = newCurrentDate
 	}

@@ -7,10 +7,10 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
-func (bd BreadData) ChartData() [][]opts.LineData {
-	result := make([][]opts.LineData, len(bd.Probes))
-	for _, datum := range bd.Data {
-		for _, p := range bd.Probes {
+func (s Session) ChartData() [][]opts.LineData {
+	result := make([][]opts.LineData, len(s.Probes))
+	for _, datum := range s.Data {
+		for _, p := range s.Probes {
 			probeData := datum.GetProbeData(p.Position)
 			if probeData <= 0 {
 				result[p.Position-1] = append(result[p.Position-1], opts.LineData{
@@ -27,7 +27,7 @@ func (bd BreadData) ChartData() [][]opts.LineData {
 	return result
 }
 
-func (bd BreadData) Chart() (*charts.Line, error) {
+func (s Session) Chart() (*charts.Line, error) {
 	line := charts.NewLine()
 	line.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{
@@ -57,7 +57,7 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 	)
 
 	events := []opts.MarkLineNameXAxisItem{}
-	for _, event := range bd.Events {
+	for _, event := range s.Events {
 		events = append(events, opts.MarkLineNameXAxisItem{
 			Name:  event.Note,
 			XAxis: event.Time,
@@ -81,7 +81,7 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		"rgba(255, 173, 177, 0.4)",
 	}
 	areas := []charts.SeriesOpts{}
-	for i, stage := range bd.Stages {
+	for i, stage := range s.Stages {
 		areas = append(areas, charts.WithMarkAreaData(stage.MarkArea(colors[i])))
 	}
 
@@ -98,8 +98,8 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 	)
 	optsWithAreaAndEvents = append(optsWithAreaAndEvents, areas...)
 
-	chartData := bd.ChartData()
-	for i, probe := range bd.Probes {
+	chartData := s.ChartData()
+	for i, probe := range s.Probes {
 		opts := baseOpts
 		if i == 0 {
 			opts = optsWithAreaAndEvents

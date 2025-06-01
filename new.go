@@ -9,7 +9,7 @@ import (
 )
 
 type SessionPart interface {
-	AddToSession(*BreadData)
+	AddToSession(*Session)
 }
 
 type Probe struct {
@@ -17,47 +17,47 @@ type Probe struct {
 	Position ProbePosition
 }
 
-func (p Probe) AddToSession(bd *BreadData) {
-	bd.Probes = append(bd.Probes, p)
+func (p Probe) AddToSession(s *Session) {
+	s.Probes = append(s.Probes, p)
 }
 
-func (s Stage) AddToSession(bd *BreadData) {
-	prevIdx := len(bd.Stages) - 1
-	bd.Stages = append(bd.Stages, s)
+func (s Stage) AddToSession(session *Session) {
+	prevIdx := len(session.Stages) - 1
+	session.Stages = append(session.Stages, s)
 
 	// Finish previous stage
 	if prevIdx == -1 {
 		return
 	}
-	bd.Stages[prevIdx].Finish(s.Start)
+	session.Stages[prevIdx].Finish(s.Start)
 }
 
 type DoneTime time.Time
 
-func (dt DoneTime) AddToSession(bd *BreadData) {
+func (dt DoneTime) AddToSession(s *Session) {
 	// Finish the last stage
-	prevIdx := len(bd.Stages) - 1
+	prevIdx := len(s.Stages) - 1
 	if prevIdx == -1 {
 		return
 	}
 
-	bd.Stages[prevIdx].Finish(time.Time(dt))
+	s.Stages[prevIdx].Finish(time.Time(dt))
 }
 
 type SessionDate time.Time
 
-func (sd SessionDate) AddToSession(bd *BreadData) {
-	bd.Date = time.Time(sd)
+func (sd SessionDate) AddToSession(s *Session) {
+	s.Date = time.Time(sd)
 }
 
-func (e Event) AddToSession(bd *BreadData) {
-	bd.Events = append(bd.Events, e)
+func (e Event) AddToSession(s *Session) {
+	s.Events = append(s.Events, e)
 }
 
 type SessionName string
 
-func (sn SessionName) AddToSession(bd *BreadData) {
-	bd.Name = string(sn)
+func (sn SessionName) AddToSession(s *Session) {
+	s.Name = string(sn)
 }
 
 var (

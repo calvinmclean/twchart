@@ -19,50 +19,14 @@ func logRequest(handler http.Handler) http.Handler {
 	})
 }
 
-// func createExampleBreadData(start time.Time) thermoworksbread.BreadData {
-// 	bd := thermoworksbread.BreadData{
-// 		Name:                 "Ciabatta",
-// 		AmbientProbePosition: thermoworksbread.ProbePosition1,
-// 		OvenProbePosition:    thermoworksbread.ProbePosition2,
-// 	}
-
-// 	now := start
-
-// 	bd.AddEvents(thermoworksbread.Event{Note: "Mix biga", Time: now})
-// 	now = now.Add(3 * time.Minute)
-
-// 	bd.StartPreferment(now)
-// 	now = now.Add(11 * time.Hour)
-
-// 	bd.StartBulkFerment(now)
-// 	now = now.Add(1 * time.Hour)
-
-// 	bd.AddEvents(thermoworksbread.Event{Note: "12 stretch and folds", Time: now})
-// 	now = now.Add(1 * time.Hour)
-
-// 	bd.AddEvents(thermoworksbread.Event{Note: "Shape", Time: now})
-// 	now = now.Add(2 * time.Minute)
-// 	bd.StartFinalProof(now)
-// 	now = now.Add(90 * time.Minute)
-
-// 	bd.StartBake(now)
-// 	now = now.Add(25 * time.Minute)
-// 	bd.EndBake(now)
-
-// 	bd.AddEvents(thermoworksbread.Event{Note: "Done", Time: now})
-
-// 	return bd
-// }
-
 func main() {
 	var filename string
-	var example, stdin bool
+	var stdin bool
 	flag.StringVar(&filename, "file", "", "filename to read BreadData from")
-	flag.BoolVar(&example, "example", false, "use example data")
 	flag.BoolVar(&stdin, "stdin", false, "read from stdin")
 	flag.Parse()
 
-	var bd thermoworksbread.BreadData
+	var s thermoworksbread.Session
 	switch {
 	case filename != "":
 		f, err := os.Open(filename)
@@ -71,7 +35,7 @@ func main() {
 		}
 		defer f.Close()
 
-		_, err = io.Copy(&bd, f)
+		_, err = io.Copy(&s, f)
 		if err != nil {
 			log.Fatalf("error parsing BreadData: %v", err)
 		}
@@ -81,20 +45,17 @@ func main() {
 			log.Fatalf("error reading stdin: %v", err)
 		}
 
-		err = bd.UnmarshalText(input)
+		err = s.UnmarshalText(input)
 		if err != nil {
 			log.Fatalf("error parsing BreadData: %v", err)
 		}
-	case example:
-		// start := time.Date(2025, time.May, 24, 20, 10, 0, 0, time.Local)
-		// bd = createExampleBreadData(start)
 	}
 
 	chartFilename := "chart.csv"
 	if filename != "" {
 		chartFilename = strings.ReplaceAll(filename, ".txt", ".csv")
 	}
-	err := bd.LoadData(chartFilename)
+	err := s.LoadData(chartFilename)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +63,7 @@ func main() {
 	log.Println("running server at http://localhost:8089")
 	log.Fatal(http.ListenAndServe("localhost:8089", logRequest(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		chart, err := bd.Chart()
+		chart, err := s.Chart()
 		if err != nil {
 			panic(err)
 		}

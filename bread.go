@@ -45,7 +45,7 @@ type Event struct {
 	Time time.Time
 }
 
-type BreadData struct {
+type Session struct {
 	Name string
 	Date time.Time
 
@@ -56,7 +56,7 @@ type BreadData struct {
 	Data []ThermoworksData
 }
 
-func (bd *BreadData) LoadData(csvFile string) error {
+func (s *Session) LoadData(csvFile string) error {
 	csvData, close, err := iterCSV(csvFile)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func (bd *BreadData) LoadData(csvFile string) error {
 			continue
 		}
 
-		bd.Data = append(bd.Data, data)
+		s.Data = append(s.Data, data)
 	}
 
 	return close()
