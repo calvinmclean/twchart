@@ -1,6 +1,7 @@
 package thermoworksbread
 
 import (
+	"bytes"
 	"encoding"
 	"errors"
 	"fmt"
@@ -20,86 +21,19 @@ func (bd *BreadData) Write(p []byte) (int, error) {
 // UnmarshalText parses the input bytes into the BreadData struct
 func (bd *BreadData) UnmarshalText(input []byte) error {
 	var currentDate time.Time
-	for _, line := range strings.Split(string(input), "\n") {
-		line = strings.TrimSpace(line)
+	for _, line := range bytes.Split(input, []byte{'\n'}) {
+		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
 			continue
 		}
 
-		if bd.Name == "" {
-			bd.Name = line
-			continue
+		result, newCurrentDate, err := ParseLine([]byte(line), currentDate)
+		if err != nil {
+			return err
 		}
+		result.AddToSession(bd)
 
-		parts := strings.SplitN(line, ":", 2)
-
-		if len(parts) != 2 {
-			return fmt.Errorf("unexpected format: %v", parts)
-		}
-
-		value := strings.TrimSpace(parts[1])
-
-		var err error
-		switch strings.ToLower(parts[0]) {
-		case "date":
-			currentDate, err = time.ParseInLocation(time.DateOnly, value, time.Local)
-			if err != nil {
-				return fmt.Errorf("error parsing date: %w", err)
-			}
-			bd.Date = currentDate
-		case "note":
-			parsedTime, note, err := parseNote(value, currentDate)
-			if err != nil {
-				return fmt.Errorf("error parsing note: %w", err)
-			}
-			bd.AddEvents(Event{Time: parsedTime, Note: note})
-			currentDate = parsedTime
-		case "preferment":
-			currentDate, err = parseStage(currentDate, value, bd.StartPreferment)
-			if err != nil {
-				return fmt.Errorf("error parsing preferment: %w", err)
-			}
-		case "bulk ferment":
-			currentDate, err = parseStage(currentDate, value, bd.StartBulkFerment)
-			if err != nil {
-				return fmt.Errorf("error parsing bulk ferment: %w", err)
-			}
-		case "final proof":
-			currentDate, err = parseStage(currentDate, value, bd.StartFinalProof)
-			if err != nil {
-				return fmt.Errorf("error parsing final proof: %w", err)
-			}
-		case "bake":
-			currentDate, err = parseStage(currentDate, value, bd.StartBake)
-			if err != nil {
-				return fmt.Errorf("error parsing bake: %w", err)
-			}
-		case "done":
-			currentDate, err = parseStage(currentDate, value, bd.EndBake)
-			if err != nil {
-				return fmt.Errorf("error parsing bake: %w", err)
-			}
-		case "ambient probe":
-			err := bd.AmbientProbePosition.UnmarshalText([]byte(value))
-			if err != nil {
-				return fmt.Errorf("error parsing ambient probe: %w", err)
-			}
-		case "oven probe":
-			err := bd.OvenProbePosition.UnmarshalText([]byte(value))
-			if err != nil {
-				return fmt.Errorf("error parsing oven probe: %w", err)
-			}
-		case "dough probe":
-			err := bd.DoughProbePosition.UnmarshalText([]byte(value))
-			if err != nil {
-				return fmt.Errorf("error parsing dough probe: %w", err)
-			}
-		case "other probe":
-			err := bd.OtherProbePosition.UnmarshalText([]byte(value))
-			if err != nil {
-				return fmt.Errorf("error parsing other probe: %w", err)
-			}
-		}
+		currentDate = newCurrentDate
 	}
 
 	return nil
@@ -157,6 +91,10 @@ func parseTime(input string, date time.Time) (time.Time, error) {
 	result, err := time.ParseInLocation(time.Kitchen, input, time.Local)
 	if err != nil {
 		return time.Time{}, err
+	}
+
+	if isNextDay(date, result) {
+		date = date.AddDate(0, 0, 1)
 	}
 
 	return time.Date(

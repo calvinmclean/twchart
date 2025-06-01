@@ -64,6 +64,9 @@ type BreadData struct {
 
 	Data []ThermoworksData
 
+	Probes []Probe
+	Stages []Stage
+
 	AmbientProbePosition ProbePosition
 	OvenProbePosition    ProbePosition
 	DoughProbePosition   ProbePosition

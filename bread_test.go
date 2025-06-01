@@ -42,29 +42,31 @@ Note: 12:00PM: bread is delicious and crunchy
 	assert.Equal(t, BreadData{
 		Name: "Ciabatta",
 		Date: time.Date(2025, time.May, 24, 0, 0, 0, 0, time.Local),
-		Preferment: Stage{
-			Name:     "Preferment",
-			Start:    time.Date(2025, time.May, 24, 18, 51, 0, 0, time.Local),
-			End:      time.Date(2025, time.May, 25, 7, 00, 0, 0, time.Local),
-			Duration: 12*time.Hour + 9*time.Minute,
-		},
-		BulkFerment: Stage{
-			Name:     "Bulk Ferment",
-			Start:    time.Date(2025, time.May, 25, 7, 00, 0, 0, time.Local),
-			End:      time.Date(2025, time.May, 25, 9, 00, 0, 0, time.Local),
-			Duration: 2 * time.Hour,
-		},
-		FinalProof: Stage{
-			Name:     "Final Proof",
-			Start:    time.Date(2025, time.May, 25, 9, 00, 0, 0, time.Local),
-			End:      time.Date(2025, time.May, 25, 10, 30, 0, 0, time.Local),
-			Duration: 90 * time.Minute,
-		},
-		Bake: Stage{
-			Name:     "Bake",
-			Start:    time.Date(2025, time.May, 25, 10, 30, 0, 0, time.Local),
-			End:      time.Date(2025, time.May, 25, 10, 55, 0, 0, time.Local),
-			Duration: 25 * time.Minute,
+		Stages: []Stage{
+			{
+				Name:     "Preferment",
+				Start:    time.Date(2025, time.May, 24, 18, 51, 0, 0, time.Local),
+				End:      time.Date(2025, time.May, 25, 7, 00, 0, 0, time.Local),
+				Duration: 12*time.Hour + 9*time.Minute,
+			},
+			{
+				Name:     "Bulk ferment",
+				Start:    time.Date(2025, time.May, 25, 7, 00, 0, 0, time.Local),
+				End:      time.Date(2025, time.May, 25, 9, 00, 0, 0, time.Local),
+				Duration: 2 * time.Hour,
+			},
+			{
+				Name:     "Final Proof",
+				Start:    time.Date(2025, time.May, 25, 9, 00, 0, 0, time.Local),
+				End:      time.Date(2025, time.May, 25, 10, 30, 0, 0, time.Local),
+				Duration: 90 * time.Minute,
+			},
+			{
+				Name:     "Bake",
+				Start:    time.Date(2025, time.May, 25, 10, 30, 0, 0, time.Local),
+				End:      time.Date(2025, time.May, 25, 10, 55, 0, 0, time.Local),
+				Duration: 25 * time.Minute,
+			},
 		},
 		Events: []Event{
 			{Note: "preparing to make biga", Time: time.Date(2025, time.May, 24, 18, 50, 0, 0, time.Local)},
@@ -73,9 +75,11 @@ Note: 12:00PM: bread is delicious and crunchy
 			{Note: "shaped dough", Time: time.Date(2025, time.May, 25, 9, 0, 0, 0, time.Local)},
 			{Note: "bread is delicious and crunchy", Time: time.Date(2025, time.May, 25, 12, 0, 0, 0, time.Local)},
 		},
-		AmbientProbePosition: ProbePosition1,
-		OvenProbePosition:    ProbePosition2,
-		DoughProbePosition:   ProbePosition3,
-		OtherProbePosition:   ProbePosition4,
+		Probes: []Probe{
+			{Name: "Ambient", Position: ProbePosition1},
+			{Name: "Oven", Position: ProbePosition2},
+			{Name: "Dough", Position: ProbePosition3},
+			{Name: "Other", Position: ProbePosition4},
+		},
 	}, bd)
 }
