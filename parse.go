@@ -3,10 +3,7 @@ package thermoworksbread
 import (
 	"bytes"
 	"encoding"
-	"errors"
-	"fmt"
 	"io"
-	"strings"
 	"time"
 )
 
@@ -39,52 +36,9 @@ func (bd *BreadData) UnmarshalText(input []byte) error {
 	return nil
 }
 
-func parseNote(value string, currentTime time.Time) (time.Time, string, error) {
-	// Find the second colon in " 6:53PM: ..."
-	second := false
-	i := strings.IndexFunc(value, func(r rune) bool {
-		if r != ':' {
-			return false
-		}
-		if !second {
-			second = true
-			return false
-		}
-		return true
-	})
-	if i < 0 {
-		fmt.Println(value)
-		return time.Time{}, "", errors.New("note is missing expected number of ':'")
-	}
-
-	parsedTime, err := parseTime(strings.TrimSpace(value[0:i]), currentTime)
-	if err != nil {
-		return time.Time{}, "", fmt.Errorf("error parsing time: %w", err)
-	}
-
-	if isNextDay(currentTime, parsedTime) {
-		parsedTime = parsedTime.AddDate(0, 0, 1)
-	}
-
-	note := strings.TrimSpace(value[i+1:])
-	return parsedTime, note, nil
-}
-
 func isNextDay(currentTime, newTime time.Time) bool {
 	// if currentTime is PM and newTime is AM, it is the next day
 	return currentTime.Hour() >= 12 && newTime.Hour() < 12
-}
-
-func parseStage(currentTime time.Time, value string, handle func(time.Time)) (time.Time, error) {
-	parsedTime, err := parseTime(value, currentTime)
-	if err != nil {
-		return time.Time{}, err
-	}
-	if isNextDay(currentTime, parsedTime) {
-		parsedTime = parsedTime.AddDate(0, 0, 1)
-	}
-	handle(parsedTime)
-	return parsedTime, nil
 }
 
 func parseTime(input string, date time.Time) (time.Time, error) {

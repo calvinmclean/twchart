@@ -1,24 +1,30 @@
 package thermoworksbread
 
 import (
+	"time"
+
 	"github.com/go-echarts/go-echarts/v2/charts"
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
-func (bd BreadData) ChartData() (
-	ambientTemperature []opts.LineData,
-	ovenTemperature []opts.LineData,
-	doughTemperature []opts.LineData,
-	other []opts.LineData,
-) {
-	for _, data := range bd.Data {
-		ambientTemperature = data.appendProbeData(ambientTemperature, bd.AmbientProbePosition)
-		ovenTemperature = data.appendProbeData(ovenTemperature, bd.OvenProbePosition)
-		doughTemperature = data.appendProbeData(doughTemperature, bd.DoughProbePosition)
-		other = data.appendProbeData(other, bd.OtherProbePosition)
+func (bd BreadData) ChartData() [][]opts.LineData {
+	result := make([][]opts.LineData, len(bd.Probes))
+	for _, datum := range bd.Data {
+		for _, p := range bd.Probes {
+			probeData := datum.GetProbeData(p.Position)
+			if probeData <= 0 {
+				result[p.Position-1] = append(result[p.Position-1], opts.LineData{
+					Value: []any{datum.Time.Format(time.RFC3339), nil},
+				})
+			}
+
+			result[p.Position-1] = append(result[p.Position-1], opts.LineData{
+				Value: []any{datum.Time.Format(time.RFC3339), probeData},
+			})
+		}
 	}
 
-	return
+	return result
 }
 
 func (bd BreadData) Chart() (*charts.Line, error) {
@@ -50,8 +56,6 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		}),
 	)
 
-	ambientTemperature, ovenTemperature, doughTemperature, otherTemperature := bd.ChartData()
-
 	events := []opts.MarkLineNameXAxisItem{}
 	for _, event := range bd.Events {
 		events = append(events, opts.MarkLineNameXAxisItem{
@@ -70,7 +74,18 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 		),
 	}
 
-	ambientOpts := append(baseOpts, []charts.SeriesOpts{
+	colors := []string{
+		"rgba(144, 238, 144, 0.4)",
+		"rgba(255, 255, 102, 0.4)",
+		"rgba(173, 216, 230, 0.4)",
+		"rgba(255, 173, 177, 0.4)",
+	}
+	areas := []charts.SeriesOpts{}
+	for i, stage := range bd.Stages {
+		areas = append(areas, charts.WithMarkAreaData(stage.MarkArea(colors[i])))
+	}
+
+	optsWithAreaAndEvents := append(baseOpts,
 		charts.WithMarkLineNameXAxisItemOpts(events...),
 		charts.WithMarkLineStyleOpts(opts.MarkLineStyle{
 			Symbol: []string{"none", "none"},
@@ -80,16 +95,17 @@ func (bd BreadData) Chart() (*charts.Line, error) {
 				// Formatter: "{b}",
 			},
 		}),
-		charts.WithMarkAreaData(bd.Preferment.MarkArea(prefermentColor)),
-		charts.WithMarkAreaData(bd.BulkFerment.MarkArea(bulkFermentColor)),
-		charts.WithMarkAreaData(bd.FinalProof.MarkArea(finalProofColor)),
-		charts.WithMarkAreaData(bd.Bake.MarkArea(bakeColor)),
-	}...)
+	)
+	optsWithAreaAndEvents = append(optsWithAreaAndEvents, areas...)
 
-	line.AddSeries("Ambient Temperature", ambientTemperature, ambientOpts...).
-		AddSeries("Dough Temperature", doughTemperature, baseOpts...).
-		AddSeries("Oven Temperature", ovenTemperature, baseOpts...).
-		AddSeries("other Temperature", otherTemperature, baseOpts...)
+	chartData := bd.ChartData()
+	for i, probe := range bd.Probes {
+		opts := baseOpts
+		if i == 0 {
+			opts = optsWithAreaAndEvents
+		}
+		line.AddSeries(probe.Name, chartData[probe.Position-1], opts...)
+	}
 
 	return line, nil
 }
