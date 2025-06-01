@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	thermoworksbread "github.com/calvinmclean/thermoworks-bread"
+	"github.com/calvinmclean/twchart"
 	"github.com/go-echarts/go-echarts/v2/components"
 )
 
@@ -26,7 +26,7 @@ func main() {
 	flag.BoolVar(&stdin, "stdin", false, "read from stdin")
 	flag.Parse()
 
-	var s thermoworksbread.Session
+	var s twchart.Session
 	switch {
 	case filename != "":
 		f, err := os.Open(filename)

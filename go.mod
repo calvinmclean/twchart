@@ -1,4 +1,4 @@
-module github.com/calvinmclean/thermoworks-bread
+module github.com/calvinmclean/twchart
 
 go 1.24.0
 

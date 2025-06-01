@@ -1,4 +1,4 @@
-package thermoworksbread
+package twchart
 
 import (
 	"time"
@@ -35,8 +35,7 @@ func (s Session) Chart() (*charts.Line, error) {
 			Height: "80vh",
 		}),
 		charts.WithTitleOpts(opts.Title{
-			Title:    "Bread Baking Temperatures",
-			Subtitle: "tracking temperatures throughout the bread-making process",
+			Title: "Temperatures",
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
 			Type: "time",

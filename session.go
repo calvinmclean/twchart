@@ -1,4 +1,4 @@
-package thermoworksbread
+package twchart
 
 import (
 	"fmt"
