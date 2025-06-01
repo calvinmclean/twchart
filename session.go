@@ -8,11 +8,32 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
+type Session struct {
+	Name string
+	Date time.Time
+
+	Probes []Probe
+	Stages []Stage
+	Events []Event
+
+	Data []ThermoworksData
+}
+
 type Stage struct {
 	Name     string
 	Start    time.Time
 	End      time.Time
 	Duration time.Duration
+}
+
+type Event struct {
+	Note string
+	Time time.Time
+}
+
+type Probe struct {
+	Name     string
+	Position ProbePosition
 }
 
 func (s *Stage) Finish(t time.Time) {
@@ -38,22 +59,6 @@ func (s *Stage) MarkArea(color string) []opts.MarkAreaData {
 			XAxis: s.End,
 		},
 	}
-}
-
-type Event struct {
-	Note string
-	Time time.Time
-}
-
-type Session struct {
-	Name string
-	Date time.Time
-
-	Probes []Probe
-	Stages []Stage
-	Events []Event
-
-	Data []ThermoworksData
 }
 
 func (s *Session) LoadData(csvFile string) error {
