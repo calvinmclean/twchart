@@ -1,6 +1,7 @@
 package twchart
 
 import (
+	"slices"
 	"time"
 
 	"github.com/go-echarts/go-echarts/v2/charts"
@@ -9,6 +10,11 @@ import (
 
 func (s Session) ChartData() [][]opts.LineData {
 	result := make([][]opts.LineData, len(s.Probes))
+
+	if len(s.Probes) == 0 {
+		return result
+	}
+
 	for _, datum := range s.Data {
 		for _, p := range s.Probes {
 			probeData := datum.GetProbeData(p.Position)
@@ -23,6 +29,15 @@ func (s Session) ChartData() [][]opts.LineData {
 			})
 		}
 	}
+
+	// Add time bounds so all Events and Stages show
+	earliest, latest := s.TimeBounds()
+	result[0] = slices.Insert(result[0], 0, opts.LineData{
+		Value: []any{earliest.Format(time.RFC3339), nil},
+	})
+	result[0] = append(result[0], opts.LineData{
+		Value: []any{latest.Format(time.RFC3339), nil},
+	})
 
 	return result
 }

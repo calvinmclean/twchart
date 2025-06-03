@@ -78,3 +78,27 @@ func (s *Session) LoadData(csvFile string) error {
 
 	return close()
 }
+
+// TimeBounds returns the earliest and latest Events or Stages to set the bounds on the Chart
+func (s Session) TimeBounds() (time.Time, time.Time) {
+	earliestTime := s.Date.AddDate(1, 0, 0)
+	latestTime := time.Time{}
+
+	for _, e := range s.Events {
+		if e.Time.Before(earliestTime) {
+			earliestTime = e.Time
+		} else if e.Time.After(latestTime) {
+			latestTime = e.Time
+		}
+	}
+
+	for _, e := range s.Stages {
+		if e.End.Before(earliestTime) {
+			earliestTime = e.End
+		} else if e.End.After(latestTime) {
+			latestTime = e.End
+		}
+	}
+
+	return earliestTime, latestTime
+}
