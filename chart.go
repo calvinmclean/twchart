@@ -63,11 +63,20 @@ func (s Session) Chart() (*charts.Line, error) {
 			Show:    opts.Bool(true),
 			Trigger: "item",
 		}),
-		charts.WithDataZoomOpts(opts.DataZoom{
-			Type:  "slider",
-			Start: 0,
-			End:   25,
-		}),
+		charts.WithDataZoomOpts(
+			opts.DataZoom{
+				Type:   "slider",
+				Start:  0,
+				End:    25,
+				Orient: "horizontal",
+			},
+			opts.DataZoom{
+				Type:   "slider",
+				Start:  0,
+				End:    100,
+				Orient: "vertical",
+			},
+		),
 	)
 
 	events := []opts.MarkLineNameXAxisItem{}
