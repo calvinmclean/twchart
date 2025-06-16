@@ -44,10 +44,24 @@ func isNextDay(currentTime, newTime time.Time) bool {
 	return currentTime.Hour() >= 12 && newTime.Hour() < 12
 }
 
+// func parseDuration(input string) (time.Duration, error) {
+
+// }
+
 func parseTime(input string, date time.Time) (time.Time, error) {
-	result, err := time.ParseInLocation(time.Kitchen, input, time.Local)
-	if err != nil {
-		return time.Time{}, err
+	var result time.Time
+	if input[0] == '+' {
+		d, err := time.ParseDuration(input[1:])
+		if err != nil {
+			return time.Time{}, err
+		}
+		result = date.Add(d)
+	} else {
+		var err error
+		result, err = time.ParseInLocation(time.Kitchen, input, time.Local)
+		if err != nil {
+			return time.Time{}, err
+		}
 	}
 
 	if isNextDay(date, result) {
@@ -60,7 +74,9 @@ func parseTime(input string, date time.Time) (time.Time, error) {
 		date.Day(),
 		result.Hour(),
 		result.Minute(),
-		0, 0, time.Local,
+		result.Second(),
+		result.Nanosecond(),
+		time.Local,
 	), nil
 }
 
@@ -114,7 +130,7 @@ func (sn SessionName) AddToSession(s *Session) {
 
 var (
 	probeRE = regexp.MustCompile(`(?i)(?P<name>.+?)\s+probe:\s+(?P<number>\d+)`)
-	noteRE  = regexp.MustCompile(`(?i)^Note:\s+(?P<timestamp>\d{1,2}:\d{2}(?:AM|PM)):\s+(?P<note>.+)$`)
+	noteRE  = regexp.MustCompile(`(?i)^Note:\s+(?P<timestamp>.+?):\s+(?P<note>.+)$`)
 )
 
 func ParseLine(in []byte, currentDate time.Time) (SessionPart, time.Time, error) {

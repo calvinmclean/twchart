@@ -58,6 +58,15 @@ func TestParseLine(t *testing.T) {
 		result.AddToSession(s)
 		assert.Equal(t, "preparing to make poolish", s.Events[1].Note)
 		assert.Equal(t, time.Date(2025, time.May, 1, 20, 10, 0, 0, time.Local), s.Events[1].Time)
+
+		t.Run("WithOffset", func(t *testing.T) {
+			input = "Note: +1h10m30s: offset"
+			result, currentDate, err = ParseLine([]byte(input), currentDate)
+			assert.NoError(t, err)
+			result.AddToSession(s)
+			assert.Equal(t, "offset", s.Events[2].Note)
+			assert.Equal(t, time.Date(2025, time.May, 1, 21, 20, 30, 0, time.Local), s.Events[2].Time)
+		})
 	})
 
 	t.Run("ParseStage", func(t *testing.T) {
@@ -80,13 +89,22 @@ func TestParseLine(t *testing.T) {
 		assert.Equal(t, time.Date(2025, time.May, 2, 8, 10, 0, 0, time.Local), s.Stages[0].End)
 		assert.Equal(t, 12*time.Hour, s.Stages[0].Duration)
 
-		t.Run("ParseDone", func(t *testing.T) {
-			input := "done: 8:30AM"
+		t.Run("WithOffset", func(t *testing.T) {
+			input = "Offset: +1h10m"
 			result, currentDate, err = ParseLine([]byte(input), currentDate)
 			assert.NoError(t, err)
 			result.AddToSession(s)
-			assert.Equal(t, time.Date(2025, time.May, 2, 8, 30, 0, 0, time.Local), s.Stages[1].End)
-			assert.Equal(t, 20*time.Minute, s.Stages[1].Duration)
+			assert.Equal(t, "Offset", s.Stages[2].Name)
+			assert.Equal(t, time.Date(2025, time.May, 2, 9, 20, 0, 0, time.Local), s.Stages[2].Start)
+		})
+
+		t.Run("ParseDone", func(t *testing.T) {
+			input := "done: 10:00AM"
+			result, currentDate, err = ParseLine([]byte(input), currentDate)
+			assert.NoError(t, err)
+			result.AddToSession(s)
+			assert.Equal(t, time.Date(2025, time.May, 2, 10, 0, 0, 0, time.Local), s.Stages[2].End)
+			assert.Equal(t, 40*time.Minute, s.Stages[2].Duration)
 		})
 	})
 
