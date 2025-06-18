@@ -27,13 +27,21 @@ func (s *Session) UnmarshalText(input []byte) error {
 			continue
 		}
 
-		result, newCurrentDate, err := ParseLine([]byte(line), currentDate)
+		result, newCurrentDate, err := ParseLine([]byte(line), currentDate, s.StartTime)
 		if err != nil {
 			return err
 		}
 		result.AddToSession(s)
 
 		currentDate = newCurrentDate
+
+		// Set the session's StartTime for the first Stage or Event
+		if s.StartTime == (time.Time{}) {
+			switch result.(type) {
+			case Stage, Event:
+				s.StartTime = currentDate
+			}
+		}
 	}
 
 	return nil
@@ -44,24 +52,23 @@ func isNextDay(currentTime, newTime time.Time) bool {
 	return currentTime.Hour() >= 12 && newTime.Hour() < 12
 }
 
-// func parseDuration(input string) (time.Duration, error) {
-
-// }
-
-func parseTime(input string, date time.Time) (time.Time, error) {
+func parseTime(input string, date, startTime time.Time) (time.Time, error) {
 	var result time.Time
-	if input[0] == '+' {
-		d, err := time.ParseDuration(input[1:])
-		if err != nil {
-			return time.Time{}, err
-		}
-		result = date.Add(d)
-	} else {
-		var err error
+
+	durationStr := strings.TrimPrefix(input, "+")
+	d, err := time.ParseDuration(durationStr)
+	if err != nil {
+		// if it's not a duration, it should be a Kitchen time
 		result, err = time.ParseInLocation(time.Kitchen, input, time.Local)
 		if err != nil {
 			return time.Time{}, err
 		}
+	} else if input[0] == '+' {
+		// if it starts with +, add to previous time
+		result = date.Add(d)
+	} else {
+		// Otherwise, add to start time
+		result = startTime.Add(d)
 	}
 
 	if isNextDay(date, result) {
@@ -133,7 +140,7 @@ var (
 	noteRE  = regexp.MustCompile(`(?i)^Note:\s+(?P<timestamp>.+?):\s+(?P<note>.+)$`)
 )
 
-func ParseLine(in []byte, currentDate time.Time) (SessionPart, time.Time, error) {
+func ParseLine(in []byte, currentDate, startTime time.Time) (SessionPart, time.Time, error) {
 	if !bytes.Contains(in, []byte{':'}) {
 		return SessionName(in), currentDate, nil
 	}
@@ -153,7 +160,7 @@ func ParseLine(in []byte, currentDate time.Time) (SessionPart, time.Time, error)
 			Note: string(match[2]),
 		}
 		var err error
-		event.Time, err = parseTime(string(match[1]), currentDate)
+		event.Time, err = parseTime(string(match[1]), currentDate, startTime)
 		if err != nil {
 			return nil, time.Time{}, fmt.Errorf("error parsing Note time %q: %w", string(match[1]), err)
 		}
@@ -177,7 +184,7 @@ func ParseLine(in []byte, currentDate time.Time) (SessionPart, time.Time, error)
 		return SessionDate(date), date, nil
 	}
 
-	stageTime, err := parseTime(stageTimeStr, currentDate)
+	stageTime, err := parseTime(stageTimeStr, currentDate, startTime)
 	if err != nil {
 		return nil, time.Time{}, fmt.Errorf("error parsing Stage time %q: %w", stageTimeStr, err)
 	}

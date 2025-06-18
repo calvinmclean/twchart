@@ -9,8 +9,9 @@ import (
 )
 
 type Session struct {
-	Name string
-	Date time.Time
+	Name      string
+	Date      time.Time
+	StartTime time.Time
 
 	Probes []Probe
 	Stages []Stage
