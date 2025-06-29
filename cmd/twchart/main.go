@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -55,38 +56,34 @@ func logRequest(handler http.Handler) http.Handler {
 }
 
 func writeChartsInDir(dir string) error {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return fmt.Errorf("error reading directory: %v", err)
-	}
+	return filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return fmt.Errorf("error accessing path %q: %v", path, err)
+		}
 
-	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".txt" {
-			continue
+			return nil
 		}
 
-		filename := filepath.Join(dir, entry.Name())
-
-		chart, err := createChartForFile(filename)
+		chart, err := createChartForFile(path)
 		if err != nil {
-			return fmt.Errorf("error creating chart for %q: %v", filename, err)
+			return fmt.Errorf("error creating chart for %q: %v", path, err)
 		}
 
-		htmlFileName := strings.TrimSuffix(entry.Name(), ".txt") + ".html"
-		htmlPath := filepath.Join(dir, htmlFileName)
-		f, err := os.Create(htmlPath)
+		htmlFileName := strings.TrimSuffix(path, ".txt") + ".html"
+		f, err := os.Create(htmlFileName)
 		if err != nil {
-			return fmt.Errorf("error creating HTML file %q: %v", htmlPath, err)
+			return fmt.Errorf("error creating HTML file %q: %v", htmlFileName, err)
 		}
 		defer f.Close()
 
 		err = chart.Render(f)
 		if err != nil {
-			return fmt.Errorf("error rendering chart to file %q: %v", htmlPath, err)
+			return fmt.Errorf("error rendering chart to file %q: %v", htmlFileName, err)
 		}
-	}
 
-	return nil
+		return nil
+	})
 }
 
 func createChartForFile(filename string) (*charts.Line, error) {
