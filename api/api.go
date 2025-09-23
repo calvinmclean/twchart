@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,20 +25,7 @@ type sessionResource struct {
 var _ babyapi.HTMLer = &sessionResource{}
 
 func (s sessionResource) HTML(w http.ResponseWriter, r *http.Request) string {
-	chart, err := twchart.Session(s.Session).Chart()
-	if err != nil {
-		babyapi.InternalServerError(err).Render(w, r)
-		return ""
-	}
-
-	var out bytes.Buffer
-	err = chart.Render(&out)
-	if err != nil {
-		babyapi.InternalServerError(err).Render(w, r)
-		return ""
-	}
-
-	return out.String()
+	return sessionDetail.Render(r, s)
 }
 
 func (s *sessionResource) Bind(r *http.Request) error {
@@ -67,6 +53,8 @@ func New() API {
 	api.SetSearchResponseWrapper(func(sr []*sessionResource) render.Renderer {
 		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*sessionResource]{Items: sr}}
 	})
+
+	api.API.AddCustomIDRoute(http.MethodGet, "/chart", api.GetRequestedResourceAndDo(api.renderChart))
 
 	// Use custom text unmarshalling/decoding for Sessions
 	render.Decode = func(r *http.Request, v any) error {
@@ -132,4 +120,17 @@ func (a *API) Setup(storeFilename string) {
 	a.API.ApplyExtension(extensions.KeyValueStorage[*sessionResource]{
 		KVConnectionConfig: extensions.KVConnectionConfig{Filename: storeFilename},
 	})
+}
+
+func (*API) renderChart(w http.ResponseWriter, _ *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+	chart, err := twchart.Session(sr.Session).Chart()
+	if err != nil {
+		return nil, babyapi.InternalServerError(err)
+	}
+
+	err = chart.Render(w)
+	if err != nil {
+		return nil, babyapi.InternalServerError(err)
+	}
+	return nil, nil
 }
