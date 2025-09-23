@@ -1,6 +1,8 @@
 package twchart
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -65,7 +67,14 @@ func (s *Stage) MarkArea(color string) []opts.MarkAreaData {
 }
 
 func (s *Session) LoadData(r io.Reader) error {
-	reader := csv.NewReader(r)
+	// Clean Unicode character U+FEFF from the beginning of CSV
+	br := bufio.NewReader(r)
+	b, _ := br.Peek(3)
+	if bytes.Equal(b, []byte{0xEF, 0xBB, 0xBF}) {
+		br.Discard(3)
+	}
+
+	reader := csv.NewReader(br)
 
 	csvData, err := iterCSV(reader)
 	if err != nil {

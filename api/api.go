@@ -110,7 +110,7 @@ func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) ren
 		return babyapi.InternalServerError(err)
 	}
 
-	render.Status(r, http.StatusOK)
+	w.WriteHeader(http.StatusOK)
 	return nil
 }
 
