@@ -47,11 +47,11 @@ type API struct {
 func New() API {
 	api := API{}
 	api.API = babyapi.NewAPI("twcharts", "/twcharts", func() *sessionResource { return &sessionResource{} })
+	api.API.AddCustomRootRoute(http.MethodGet, "/", http.RedirectHandler("/twcharts", http.StatusFound))
 	api.API.AddCustomRoute(http.MethodPost, "/upload-csv", babyapi.Handler(api.loadCSVToLatestSession))
 	api.SetSearchResponseWrapper(func(sr []*sessionResource) render.Renderer {
 		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*sessionResource]{Items: sr}}
 	})
-
 	api.API.AddCustomIDRoute(http.MethodGet, "/chart", api.GetRequestedResourceAndDo(api.renderChart))
 
 	// Use custom text unmarshalling/decoding for Sessions
