@@ -29,8 +29,6 @@ func (s sessionResource) HTML(w http.ResponseWriter, r *http.Request) string {
 }
 
 func (s *sessionResource) Bind(r *http.Request) error {
-	fmt.Println(r.Header.Get("Content-Type"))
-
 	if s.UploadedAt.Equal(time.Time{}) {
 		s.UploadedAt = time.Now()
 	}

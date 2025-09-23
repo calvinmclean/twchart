@@ -1,6 +1,12 @@
 package api
 
-import "github.com/calvinmclean/babyapi/html"
+import (
+	"net/http"
+	"slices"
+
+	"github.com/calvinmclean/babyapi"
+	"github.com/calvinmclean/babyapi/html"
+)
 
 const (
 	sessionDetail         = html.Template("sessionDetail")
@@ -80,12 +86,73 @@ const (
     </div>
 </body>
 </html>
-{{ end }}
-`
+{{ end }}`
+
+	listSessions         = html.Template("listSessions")
+	listSessionsTemplate = `{{ define "listSessions" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sessions</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit-icons.min.js"></script>
+</head>
+<body class="uk-background-muted uk-padding">
+
+    <div class="uk-container uk-container-small">
+
+        <h1 class="uk-heading-line uk-text-center"><span>Sessions</span></h1>
+
+        {{ if . }}
+        <ul class="uk-list uk-list-divider uk-margin">
+            {{ range . }}
+            <li class="uk-flex uk-flex-between uk-flex-middle">
+                <div>
+                    <h3 class="uk-margin-remove">
+                        <a class="uk-link-heading" href="{{ .DefaultResource.ID }}">{{ .Session.Name }}</a>
+                    </h3>
+                    <p class="uk-text-meta uk-margin-remove-top">
+                        {{ .Session.Date.Format "Monday, Jan 2, 2006" }}
+                    </p>
+                </div>
+                <div>
+                    <a href="{{ .DefaultResource.ID }}/chart" class="uk-button uk-button-default uk-button-small">Chart</a>
+                </div>
+            </li>
+            {{ end }}
+        </ul>
+        {{ else }}
+        <p class="uk-text-center uk-text-muted">No sessions found.</p>
+        {{ end }}
+
+    </div>
+
+</body>
+</html>
+{{ end }}`
 )
 
 func init() {
 	html.SetMap(map[string]string{
 		string(sessionDetail): sessionDetailTemplate,
+		string(listSessions):  listSessionsTemplate,
 	})
+}
+
+// allSessionsWrapper allows rendering an HTML page that lists all charts
+type allSessionsWrapper struct {
+	babyapi.ResourceList[*sessionResource]
+}
+
+func (as allSessionsWrapper) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
+func (as allSessionsWrapper) HTML(_ http.ResponseWriter, r *http.Request) string {
+	slices.SortFunc(as.Items, func(a, b *sessionResource) int {
+		return a.Session.StartTime.Compare(b.Session.StartTime)
+	})
+	return listSessions.Render(r, as.Items)
 }
