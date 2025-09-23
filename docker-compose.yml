@@ -1,0 +1,13 @@
+services:
+  twchart:
+    image: "ghcr.io/calvinmclean/twchart:latest"
+    ports:
+      - "8080:8080"
+    volumes:
+      - "./data:/data"
+    command:
+      - "serve"
+      - "--store"
+      - "/data/sessions.json"
+    user: 1000:1000
+    restart: unless-stopped
