@@ -1,8 +1,10 @@
 package twchart
 
 import (
+	"encoding/csv"
 	"fmt"
-	"log"
+	"io"
+	"os"
 	"time"
 
 	"github.com/go-echarts/go-echarts/v2/opts"
@@ -62,22 +64,33 @@ func (s *Stage) MarkArea(color string) []opts.MarkAreaData {
 	}
 }
 
-func (s *Session) LoadData(csvFile string) error {
-	csvData, close, err := iterCSV(csvFile)
+func (s *Session) LoadData(r io.Reader) error {
+	reader := csv.NewReader(r)
+
+	csvData, err := iterCSV(reader)
 	if err != nil {
 		return err
 	}
 
 	for data, err := range csvData {
 		if err != nil {
-			log.Println("CSV ERR:", err)
 			continue
 		}
 
 		s.Data = append(s.Data, data)
 	}
 
-	return close()
+	return nil
+}
+
+func (s *Session) LoadDataFromFile(csvFile string) error {
+	file, err := os.Open(csvFile)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	return s.LoadData(file)
 }
 
 // TimeBounds returns the earliest and latest Events or Stages to set the bounds on the Chart

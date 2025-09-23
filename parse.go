@@ -13,15 +13,15 @@ import (
 var _ encoding.TextUnmarshaler = &Session{}
 var _ io.Writer = &Session{}
 
-// Write writes data from p into the BreadData struct
+// Write writes data from p into the Session struct
 func (s *Session) Write(p []byte) (int, error) {
 	return len(p), s.UnmarshalText(p)
 }
 
-// UnmarshalText parses the input bytes into the BreadData struct
+// UnmarshalText parses the input bytes into the Session struct
 func (s *Session) UnmarshalText(input []byte) error {
 	var currentDate time.Time
-	for _, line := range bytes.Split(input, []byte{'\n'}) {
+	for line := range bytes.SplitSeq(input, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
 			continue
@@ -36,7 +36,7 @@ func (s *Session) UnmarshalText(input []byte) error {
 		currentDate = newCurrentDate
 
 		// Set the session's StartTime for the first Stage or Event
-		if s.StartTime == (time.Time{}) {
+		if s.StartTime.Equal(time.Time{}) {
 			switch result.(type) {
 			case Stage, Event:
 				s.StartTime = currentDate

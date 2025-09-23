@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"iter"
-	"os"
 	"strconv"
 	"time"
 
@@ -21,6 +20,10 @@ const (
 )
 
 type ProbePosition uint
+
+func (pp *ProbePosition) UnmarshalJSON(input []byte) error {
+	return pp.UnmarshalText(input)
+}
 
 func (pp *ProbePosition) UnmarshalText(input []byte) error {
 	val, err := strconv.Atoi(string(input))
@@ -61,25 +64,17 @@ func (td ThermoworksData) appendProbeData(lineData []opts.LineData, pos ProbePos
 	})
 }
 
-func iterCSV(filename string) (iter.Seq2[ThermoworksData, error], func() error, error) {
-	file, err := os.Open(filename)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	reader := csv.NewReader(file)
+func iterCSV(reader *csv.Reader) (iter.Seq2[ThermoworksData, error], error) {
 	reader.TrimLeadingSpace = true
 
 	// Read header
 	headers, err := reader.Read()
 	if err != nil {
-		_ = file.Close()
-		return nil, nil, err
+		return nil, err
 	}
 
 	if len(headers) < 2 || headers[0] != "DateTime" {
-		_ = file.Close()
-		return nil, nil, fmt.Errorf("unexpected header format")
+		return nil, fmt.Errorf("unexpected header format")
 	}
 
 	return func(yield func(ThermoworksData, error) bool) {
@@ -132,5 +127,5 @@ func iterCSV(filename string) (iter.Seq2[ThermoworksData, error], func() error, 
 				return
 			}
 		}
-	}, file.Close, nil
+	}, nil
 }
