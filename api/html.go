@@ -26,7 +26,7 @@ const (
         <!-- Header -->
         <div class="uk-flex uk-flex-between uk-flex-middle">
             <h1 class="uk-heading-line"><span>{{ .Session.Name }}</span></h1>
-            <a href="/twcharts/{{ .DefaultResource.ID }}/chart" class="uk-button uk-button-default uk-button-small">Chart</a>
+            <a href="/sessions/{{ .DefaultResource.ID }}/chart" class="uk-button uk-button-default uk-button-small">Chart</a>
         </div>
         <p class="uk-text-meta">{{ .Session.Date.Format "Monday, Jan 2, 2006" }}</p>
 
@@ -111,14 +111,14 @@ const (
             <li class="uk-flex uk-flex-between uk-flex-middle">
                 <div>
                     <h3 class="uk-margin-remove">
-                        <a class="uk-link-heading" href="/twcharts/{{ .DefaultResource.ID }}">{{ .Session.Name }}</a>
+                        <a class="uk-link-heading" href="/sessions/{{ .DefaultResource.ID }}">{{ .Session.Name }}</a>
                     </h3>
                     <p class="uk-text-meta uk-margin-remove-top">
                         {{ .Session.Date.Format "Monday, Jan 2, 2006" }}
                     </p>
                 </div>
                 <div>
-                    <a href="/twcharts/{{ .DefaultResource.ID }}/chart" class="uk-button uk-button-default uk-button-small">Chart</a>
+                    <a href="/sessions/{{ .DefaultResource.ID }}/chart" class="uk-button uk-button-default uk-button-small">Chart</a>
                 </div>
             </li>
             {{ end }}
