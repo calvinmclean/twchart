@@ -15,6 +15,7 @@ const (
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ .Session.Name }} – {{ .Session.Date.Format "2006-01-02" }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit.min.js"></script>
@@ -34,26 +35,28 @@ const (
         {{ if .Session.Stages }}
         <div class="uk-card uk-card-default uk-card-body uk-margin">
             <h3 class="uk-card-title">Stages</h3>
-            <table class="uk-table uk-table-divider uk-table-small">
-                <thead>
-                    <tr>
-                        <th>Stage</th>
-                        <th>Start</th>
-                        <th>End</th>
-                        <th>Duration</th>
-                    </tr>
-                </thead>
-                <tbody>
-                {{ range .Session.Stages }}
-                    <tr>
-                        <td>{{ .Name }}</td>
-                        <td>{{ .Start.Format "3:04PM" }}</td>
-                        <td>{{ if not .End.IsZero }}{{ .End.Format "3:04PM" }}{{ else }}–{{ end }}</td>
-                        <td>{{ if .Duration }}{{ .Duration }}{{ else }}–{{ end }}</td>
-                    </tr>
-                {{ end }}
-                </tbody>
-            </table>
+            <div class="uk-overflow-auto">
+	            <table class="uk-table uk-table-divider uk-table-small">
+	                <thead>
+	                    <tr>
+	                        <th>Stage</th>
+	                        <th>Start</th>
+	                        <th>End</th>
+	                        <th>Duration</th>
+	                    </tr>
+	                </thead>
+	                <tbody>
+	                {{ range .Session.Stages }}
+	                    <tr>
+	                        <td>{{ .Name }}</td>
+	                        <td>{{ .Start.Format "3:04PM" }}</td>
+	                        <td>{{ if not .End.IsZero }}{{ .End.Format "3:04PM" }}{{ else }}–{{ end }}</td>
+	                        <td>{{ if .Duration }}{{ .Duration }}{{ else }}–{{ end }}</td>
+	                    </tr>
+	                {{ end }}
+	                </tbody>
+	            </table>
+            </div>
         </div>
         {{ end }}
 
@@ -94,6 +97,7 @@ const (
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sessions</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit.min.js"></script>
