@@ -136,12 +136,43 @@ const (
 </body>
 </html>
 {{ end }}`
+
+	chartView         = html.Template("chartView")
+	chartViewTemplate = `{{ define "chartView" }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .Title }}</title>
+
+    <!-- UIkit -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit-icons.min.js"></script>
+
+    <!-- Apache ECharts -->
+    <script src="https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"></script>
+</head>
+<body class="uk-background-muted uk-padding">
+    <div class="uk-container">
+       	{{ .Element }}
+        {{ .Script }}
+
+        <div class="uk-text-center uk-margin">
+            <a href="{{ .BackURL }}" class="uk-button uk-button-default">← Back</a>
+        </div>
+    </div>
+</body>
+</html>
+{{ end }}`
 )
 
 func init() {
 	html.SetMap(map[string]string{
 		string(sessionDetail): sessionDetailTemplate,
 		string(listSessions):  listSessionsTemplate,
+		string(chartView):     chartViewTemplate,
 	})
 }
 

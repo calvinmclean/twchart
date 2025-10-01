@@ -46,11 +46,8 @@ func (s Session) Chart() (*charts.Line, error) {
 	line := charts.NewLine()
 	line.SetGlobalOptions(
 		charts.WithInitializationOpts(opts.Initialization{
-			Width:  "90%",
+			Width:  "100%",
 			Height: "80vh",
-		}),
-		charts.WithTitleOpts(opts.Title{
-			Title: "Temperatures",
 		}),
 		charts.WithXAxisOpts(opts.XAxis{
 			Type: "time",

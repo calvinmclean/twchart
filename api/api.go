@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"time"
@@ -120,15 +121,23 @@ func (a *API) Setup(storeFilename string) {
 	})
 }
 
-func (*API) renderChart(w http.ResponseWriter, _ *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+func (*API) renderChart(w http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
 	chart, err := twchart.Session(sr.Session).Chart()
 	if err != nil {
 		return nil, babyapi.InternalServerError(err)
 	}
 
-	err = chart.Render(w)
-	if err != nil {
-		return nil, babyapi.InternalServerError(err)
-	}
-	return nil, nil
+	snippet := chart.RenderSnippet()
+
+	return chartView.Renderer(struct {
+		Element template.HTML
+		Script  template.HTML
+		Title   string
+		BackURL string
+	}{
+		Element: template.HTML(snippet.Element),
+		Script:  template.HTML(snippet.Script),
+		Title:   sr.Session.Name,
+		BackURL: fmt.Sprintf("/sessions/%s", sr.GetID()),
+	}), nil
 }
