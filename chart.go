@@ -119,13 +119,11 @@ func (s Session) Chart() (*charts.Line, error) {
 	optsWithAreaAndEvents = append(optsWithAreaAndEvents, areas...)
 
 	chartData := s.ChartData()
-	for i, probe := range s.Probes {
-		opts := baseOpts
-		if i == 0 {
-			opts = optsWithAreaAndEvents
-		}
-		line.AddSeries(probe.Name, chartData[probe.Position-1], opts...)
+	for _, probe := range s.Probes {
+		line.AddSeries(probe.Name, chartData[probe.Position-1], baseOpts...)
 	}
+
+	line.AddSeries("Stages + Events", nil, optsWithAreaAndEvents...)
 
 	return line, nil
 }
