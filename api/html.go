@@ -16,14 +16,18 @@ const (
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ .Session.Name }} – {{ .Session.Date.Format "2006-01-02" }}</title>
+    <title>{{ .Session.Name }}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit-icons.min.js"></script>
 </head>
 <body class="uk-background-muted uk-padding">
-
     <div class="uk-container uk-container-small">
+	    <ul class="uk-breadcrumb uk-margin-small-top">
+	        <li><a href="/sessions">Sessions</a></li>
+	        <li><span>{{ .Session.Name }}</span></li>
+	    </ul>
+
         <!-- Header -->
         <div class="uk-flex uk-flex-between uk-flex-middle">
             <h1 class="uk-heading-line"><span>{{ .Session.Name }}</span></h1>
@@ -104,10 +108,15 @@ const (
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit-icons.min.js"></script>
 </head>
 <body class="uk-background-muted uk-padding">
-
     <div class="uk-container uk-container-small">
+	    <ul class="uk-breadcrumb uk-margin-small-top">
+		    <li><a href="/sessions">Sessions</a></li>
+		    <li><span></span></li>
+		</ul>
 
-        <h1 class="uk-heading-line uk-text-center"><span>Sessions</span></h1>
+		<div class="uk-flex uk-flex-between uk-flex-middle">
+            <h1 class="uk-heading-line"><span>Sessions</span></h1>
+        </div>
 
         {{ if . }}
         <ul class="uk-list uk-list-divider uk-margin">
@@ -144,7 +153,7 @@ const (
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ .Title }}</title>
+    <title>{{ .Title }} - Chart</title>
 
     <!-- UIkit -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
@@ -155,13 +164,23 @@ const (
     <script src="https://go-echarts.github.io/go-echarts-assets/assets/echarts.min.js"></script>
 </head>
 <body class="uk-background-muted uk-padding">
+    <div class="uk-container uk-container-small">
+	    <ul class="uk-breadcrumb uk-margin-small-top">
+		    <li><a href="/sessions">Sessions</a></li>
+		    <li><a href="{{ .BackURL }}">{{ .Title }}</a></li>
+		    <li><span>Chart</span></li>
+		</ul>
+		<div class="uk-flex uk-flex-between uk-flex-middle">
+            <h1 class="uk-heading-line"><span>{{ .Title }}</span></h1>
+
+            <div class="uk-text-center uk-margin">
+                <a href="{{ .BackURL }}" class="uk-button uk-button-default uk-button-small">← Back</a>
+            </div>
+        </div>
+    </div>
     <div class="uk-container">
        	{{ .Element }}
         {{ .Script }}
-
-        <div class="uk-text-center uk-margin">
-            <a href="{{ .BackURL }}" class="uk-button uk-button-default">← Back</a>
-        </div>
     </div>
 </body>
 </html>
