@@ -41,6 +41,15 @@ func (s *sessionResource) Bind(r *http.Request) error {
 	return nil
 }
 
+var _ babyapi.Patcher[*sessionResource] = &sessionResource{}
+
+func (s *sessionResource) Patch(newSession *sessionResource) *babyapi.ErrResponse {
+	if !newSession.Session.StartTime.IsZero() && s.Session.StartTime.IsZero() {
+		s.Session.StartTime = newSession.Session.StartTime
+	}
+	return nil
+}
+
 type API struct {
 	*babyapi.API[*sessionResource]
 }
@@ -54,29 +63,80 @@ func New() API {
 		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*sessionResource]{Items: sr}}
 	})
 	api.API.AddCustomIDRoute(http.MethodGet, "/chart", api.GetRequestedResourceAndDo(api.renderChart))
+	api.API.AddCustomIDRoute(http.MethodPost, "/add-event", api.GetRequestedResourceAndDo(api.addEvent))
+	api.API.AddCustomIDRoute(http.MethodPost, "/add-stage", api.GetRequestedResourceAndDo(api.addStage))
+	api.API.AddCustomIDRoute(http.MethodPost, "/finish", api.GetRequestedResourceAndDo(api.finish))
 
 	// Use custom text unmarshalling/decoding for Sessions
 	render.Decode = func(r *http.Request, v any) error {
-		if render.GetRequestContentType(r) == render.ContentTypePlainText {
-			sessionTarget, ok := v.(*sessionResource)
-			if !ok {
-				return fmt.Errorf("unsupported target for plaintext decoder: %T", v)
-			}
-
-			var s twchart.Session
-			_, err := io.Copy(&s, r.Body)
-			if err != nil {
-				return fmt.Errorf("error parsing Session: %w", err)
-			}
-
-			sessionTarget.Session = sessionAlias(s)
-
-			return nil
+		if render.GetRequestContentType(r) != render.ContentTypePlainText {
+			return render.DefaultDecoder(r, v)
 		}
-		return render.DefaultDecoder(r, v)
+
+		sessionTarget, ok := v.(*sessionResource)
+		if !ok {
+			return fmt.Errorf("unsupported target for plaintext decoder: %T", v)
+		}
+
+		var s twchart.Session
+		_, err := io.Copy(&s, r.Body)
+		if err != nil {
+			return fmt.Errorf("error parsing Session: %w", err)
+		}
+
+		sessionTarget.Session = sessionAlias(s)
+
+		return nil
 	}
 
 	return api
+}
+
+func (a *API) finish(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+	session := twchart.Session(sr.Session)
+	done := twchart.DoneTime(time.Now())
+	done.AddToSession(&session)
+	sr.Session = sessionAlias(session)
+
+	err := a.Storage.Set(r.Context(), sr)
+	if err != nil {
+		return nil, babyapi.InternalServerError(err)
+	}
+	return nil, nil
+}
+
+func (a *API) addStage(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+	var s twchart.Stage
+	if err := render.DefaultDecoder(r, &s); err != nil {
+		return nil, babyapi.ErrInvalidRequest(fmt.Errorf("error parsing Stage: %w", err))
+	}
+
+	session := twchart.Session(sr.Session)
+	s.AddToSession(&session)
+	sr.Session = sessionAlias(session)
+
+	err := a.Storage.Set(r.Context(), sr)
+	if err != nil {
+		return nil, babyapi.InternalServerError(err)
+	}
+	return nil, nil
+}
+
+func (a *API) addEvent(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+	var e twchart.Event
+	if err := render.DefaultDecoder(r, &e); err != nil {
+		return nil, babyapi.ErrInvalidRequest(fmt.Errorf("error parsing Event: %w", err))
+	}
+
+	session := twchart.Session(sr.Session)
+	e.AddToSession(&session)
+	sr.Session = sessionAlias(session)
+
+	err := a.Storage.Set(r.Context(), sr)
+	if err != nil {
+		return nil, babyapi.InternalServerError(err)
+	}
+	return nil, nil
 }
 
 func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) render.Renderer {
