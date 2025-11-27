@@ -206,7 +206,7 @@ func (as allSessionsWrapper) Render(w http.ResponseWriter, r *http.Request) erro
 
 func (as allSessionsWrapper) HTML(_ http.ResponseWriter, r *http.Request) string {
 	slices.SortFunc(as.Items, func(a, b *sessionResource) int {
-		return a.Session.StartTime.Compare(b.Session.StartTime)
+		return b.Session.StartTime.Compare(a.Session.StartTime)
 	})
 	return listSessions.Render(r, as.Items)
 }
