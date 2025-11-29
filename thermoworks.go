@@ -80,6 +80,7 @@ func iterCSV(reader *csv.Reader) (iter.Seq2[ThermoworksData, error], error) {
 	}
 
 	return func(yield func(ThermoworksData, error) bool) {
+		prev := time.Time{}
 		for {
 			record, err := reader.Read()
 			if err == io.EOF {
@@ -104,6 +105,12 @@ func iterCSV(reader *csv.Reader) (iter.Seq2[ThermoworksData, error], error) {
 				continue
 			}
 			dt = dt.Local()
+
+			// When using the Fan on Thermoworks Bellows, there will be multiple rows with the same timestamp
+			if prev.Equal(dt) {
+				continue
+			}
+			prev = dt
 
 			probes := make([]float64, len(headers)-1)
 			for i := 1; i < len(headers); i++ {
