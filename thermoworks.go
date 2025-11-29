@@ -17,6 +17,8 @@ const (
 	ProbePosition2
 	ProbePosition3
 	ProbePosition4
+	ProbePosition5
+	probePositionInvalid
 )
 
 type ProbePosition uint
@@ -31,7 +33,7 @@ func (pp *ProbePosition) UnmarshalText(input []byte) error {
 		return err
 	}
 
-	if val < ProbePositionNone || val > ProbePosition4 {
+	if val < ProbePositionNone || val >= probePositionInvalid {
 		return fmt.Errorf("invalid ProbePosition: %d", val)
 	}
 
