@@ -14,12 +14,9 @@ import (
 	"github.com/go-chi/render"
 )
 
-// sessionAlias prevents the UnmarshalText from being used for JSON
-type sessionAlias twchart.Session
-
 type sessionResource struct {
 	babyapi.DefaultResource
-	Session    sessionAlias
+	Session    twchart.Session
 	UploadedAt time.Time
 }
 
@@ -63,9 +60,9 @@ func New() API {
 		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*sessionResource]{Items: sr}}
 	})
 	api.API.AddCustomIDRoute(http.MethodGet, "/chart", api.GetRequestedResourceAndDo(api.renderChart))
-	api.API.AddCustomIDRoute(http.MethodPost, "/add-event", api.GetRequestedResourceAndDo(api.addEvent))
-	api.API.AddCustomIDRoute(http.MethodPost, "/add-stage", api.GetRequestedResourceAndDo(api.addStage))
-	api.API.AddCustomIDRoute(http.MethodPost, "/finish", api.GetRequestedResourceAndDo(api.finish))
+	api.API.AddCustomIDRoute(http.MethodPost, "/add-event", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.Event](api)))
+	api.API.AddCustomIDRoute(http.MethodPost, "/add-stage", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.Stage](api)))
+	api.API.AddCustomIDRoute(http.MethodPost, "/done", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.DoneTime](api)))
 
 	// Use custom text unmarshalling/decoding for Sessions
 	render.Decode = func(r *http.Request, v any) error {
@@ -84,7 +81,7 @@ func New() API {
 			return fmt.Errorf("error parsing Session: %w", err)
 		}
 
-		sessionTarget.Session = sessionAlias(s)
+		sessionTarget.Session = s
 
 		return nil
 	}
@@ -92,51 +89,21 @@ func New() API {
 	return api
 }
 
-func (a *API) finish(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
-	session := twchart.Session(sr.Session)
-	done := twchart.DoneTime(time.Now())
-	done.AddToSession(&session)
-	sr.Session = sessionAlias(session)
+func sessionPartHandler[T twchart.SessionPart](a API) func(http.ResponseWriter, *http.Request, *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+	return func(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+		var sessionPart T
+		if err := render.DefaultDecoder(r, &sessionPart); err != nil {
+			return nil, babyapi.ErrInvalidRequest(fmt.Errorf("error parsing SessionPart: %w", err))
+		}
 
-	err := a.Storage.Set(r.Context(), sr)
-	if err != nil {
-		return nil, babyapi.InternalServerError(err)
+		sessionPart.AddToSession(&sr.Session)
+
+		err := a.Storage.Set(r.Context(), sr)
+		if err != nil {
+			return nil, babyapi.InternalServerError(err)
+		}
+		return nil, nil
 	}
-	return nil, nil
-}
-
-func (a *API) addStage(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
-	var s twchart.Stage
-	if err := render.DefaultDecoder(r, &s); err != nil {
-		return nil, babyapi.ErrInvalidRequest(fmt.Errorf("error parsing Stage: %w", err))
-	}
-
-	session := twchart.Session(sr.Session)
-	s.AddToSession(&session)
-	sr.Session = sessionAlias(session)
-
-	err := a.Storage.Set(r.Context(), sr)
-	if err != nil {
-		return nil, babyapi.InternalServerError(err)
-	}
-	return nil, nil
-}
-
-func (a *API) addEvent(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
-	var e twchart.Event
-	if err := render.DefaultDecoder(r, &e); err != nil {
-		return nil, babyapi.ErrInvalidRequest(fmt.Errorf("error parsing Event: %w", err))
-	}
-
-	session := twchart.Session(sr.Session)
-	e.AddToSession(&session)
-	sr.Session = sessionAlias(session)
-
-	err := a.Storage.Set(r.Context(), sr)
-	if err != nil {
-		return nil, babyapi.InternalServerError(err)
-	}
-	return nil, nil
 }
 
 func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) render.Renderer {
@@ -159,13 +126,11 @@ func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) ren
 		return babyapi.ErrInvalidRequest(fmt.Errorf("unexpected Content-Type: %s", contentType))
 	}
 
-	session := twchart.Session(latest.Session)
-	err = session.LoadData(r.Body)
+	err = latest.Session.LoadData(r.Body)
 	if err != nil {
 		return babyapi.ErrInvalidRequest(err)
 	}
 
-	latest.Session = sessionAlias(session)
 	err = a.API.Storage.Set(r.Context(), latest)
 	if err != nil {
 		return babyapi.InternalServerError(err)

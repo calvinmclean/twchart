@@ -2,7 +2,7 @@ package twchart
 
 import (
 	"bytes"
-	"encoding"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -10,16 +10,15 @@ import (
 	"time"
 )
 
-var _ encoding.TextUnmarshaler = &Session{}
 var _ io.Writer = &Session{}
 
 // Write writes data from p into the Session struct
 func (s *Session) Write(p []byte) (int, error) {
-	return len(p), s.UnmarshalText(p)
+	return len(p), s.FromText(p)
 }
 
-// UnmarshalText parses the input bytes into the Session struct
-func (s *Session) UnmarshalText(input []byte) error {
+// FromText parses the input bytes into the Session struct
+func (s *Session) FromText(input []byte) error {
 	var currentDate time.Time
 	for line := range bytes.SplitSeq(input, []byte{'\n'}) {
 		line = bytes.TrimSpace(line)
@@ -108,6 +107,23 @@ func (s Stage) AddToSession(session *Session) {
 }
 
 type DoneTime time.Time
+
+func (dt *DoneTime) UnmarshalJSON(in []byte) error {
+	var d struct {
+		Time time.Time `json:"time"`
+	}
+	err := json.Unmarshal(in, &d)
+	if err != nil {
+		return err
+	}
+
+	if d.Time.IsZero() {
+		d.Time = time.Now()
+	}
+
+	*dt = DoneTime(d.Time)
+	return nil
+}
 
 func (dt DoneTime) AddToSession(s *Session) {
 	// Finish the last stage

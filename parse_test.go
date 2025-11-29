@@ -2,6 +2,7 @@ package twchart
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"testing"
 	"time"
@@ -265,4 +266,12 @@ Done: 10m30s
 			{Name: "Bean", Position: ProbePosition2},
 		},
 	}, s)
+}
+
+func TestDoneTimeUnmarshalJSON(t *testing.T) {
+	jsonData := `{"time":"2006-01-02T15:04:05Z"}`
+	var d DoneTime
+	err := json.Unmarshal([]byte(jsonData), &d)
+	assert.NoError(t, err)
+	assert.Equal(t, time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC), time.Time(d))
 }
