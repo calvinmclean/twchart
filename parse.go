@@ -3,6 +3,7 @@ package twchart
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -70,13 +71,10 @@ func parseTime(input string, date, startTime time.Time) (time.Time, error) {
 	durationStr := strings.TrimPrefix(input, "+")
 	d, err := time.ParseDuration(durationStr)
 	if err != nil {
-		// if it's not a duration, it should be a Kitchen time
-		result, err = time.ParseInLocation(time.Kitchen, input, time.Local)
+		result, err = parseTimestamp(input, date)
 		if err != nil {
 			return time.Time{}, err
 		}
-		// Kitchen time defaults to 0000-01-01 for the date part, so we add the current date (-1 on month and day)
-		result = result.AddDate(date.Year(), int(date.Month())-1, date.Day()-1)
 	} else if input[0] == '+' {
 		// if it starts with +, add to previous time
 		result = date.Add(d)
@@ -89,6 +87,22 @@ func parseTime(input string, date, startTime time.Time) (time.Time, error) {
 		result = result.AddDate(0, 0, 1)
 	}
 
+	return result, nil
+}
+
+// parseTimestamp will attempt to parse time.Kitchen or a combination of time.DateOnly + time.Kitchen
+func parseTimestamp(input string, currentDate time.Time) (time.Time, error) {
+	result, kitchenErr := time.ParseInLocation(time.Kitchen, input, time.Local)
+	if kitchenErr == nil {
+		// Kitchen time defaults to 0000-01-01 for the date part, so we add the current date (-1 on month and day)
+		result = result.AddDate(currentDate.Year(), int(currentDate.Month())-1, currentDate.Day()-1)
+		return result, nil
+	}
+
+	result, err := time.ParseInLocation(time.DateOnly+" "+time.Kitchen, input, time.Local)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("error parsing time: %w", errors.Join(kitchenErr, err))
+	}
 	return result, nil
 }
 

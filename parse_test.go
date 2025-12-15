@@ -68,6 +68,15 @@ func TestParseLine(t *testing.T) {
 			assert.Equal(t, "offset", s.Events[2].Note)
 			assert.Equal(t, time.Date(2025, time.May, 1, 21, 20, 30, 0, time.Local), s.Events[2].Time)
 		})
+
+		t.Run("WithDateTime", func(t *testing.T) {
+			input = "Note: 2025-05-03 9:00PM: datetime"
+			result, _, err = ParseLine([]byte(input), currentDate, currentDate)
+			assert.NoError(t, err)
+			event := result.(Event)
+			assert.Equal(t, "datetime", event.Note)
+			assert.Equal(t, time.Date(2025, time.May, 3, 21, 0, 0, 0, time.Local), event.Time)
+		})
 	})
 
 	t.Run("ParseStage", func(t *testing.T) {
@@ -97,6 +106,15 @@ func TestParseLine(t *testing.T) {
 			result.AddToSession(s)
 			assert.Equal(t, "Offset", s.Stages[2].Name)
 			assert.Equal(t, time.Date(2025, time.May, 2, 9, 20, 0, 0, time.Local), s.Stages[2].Start)
+		})
+
+		t.Run("WithDateTime", func(t *testing.T) {
+			input = "Datetime: 2025-05-03 9:00PM"
+			result, _, err = ParseLine([]byte(input), currentDate, currentDate)
+			assert.NoError(t, err)
+			stage := result.(Stage)
+			assert.Equal(t, "Datetime", stage.Name)
+			assert.Equal(t, time.Date(2025, time.May, 3, 21, 0, 0, 0, time.Local), stage.Start)
 		})
 
 		t.Run("ParseDone", func(t *testing.T) {
