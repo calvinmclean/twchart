@@ -47,8 +47,21 @@ func (s *Session) FromText(input []byte) error {
 }
 
 func isNextDay(currentTime, newTime time.Time) bool {
+	// it is not the next day if this is the first time measurement
+	if currentTime.Hour() == 0 && currentTime.Minute() == 0 && currentTime.Second() == 0 {
+		return false
+	}
+	if newTime.Equal(currentTime) {
+		return false
+	}
 	// if currentTime is PM and newTime is AM, it is the next day
-	return currentTime.Hour() >= 12 && newTime.Hour() < 12
+	morningIsOver := currentTime.Hour() >= 12 && newTime.Hour() < 12
+	if morningIsOver {
+		return true
+	}
+	// Otherwise, if the new time is before the previous, nearly 24 hours have passed
+	// This won't work for exactly 24 hours
+	return newTime.Before(currentTime)
 }
 
 func parseTime(input string, date, startTime time.Time) (time.Time, error) {
@@ -62,6 +75,8 @@ func parseTime(input string, date, startTime time.Time) (time.Time, error) {
 		if err != nil {
 			return time.Time{}, err
 		}
+		// Kitchen time defaults to 0000-01-01 for the date part, so we add the current date (-1 on month and day)
+		result = result.AddDate(date.Year(), int(date.Month())-1, date.Day()-1)
 	} else if input[0] == '+' {
 		// if it starts with +, add to previous time
 		result = date.Add(d)
@@ -71,19 +86,10 @@ func parseTime(input string, date, startTime time.Time) (time.Time, error) {
 	}
 
 	if isNextDay(date, result) {
-		date = date.AddDate(0, 0, 1)
+		result = result.AddDate(0, 0, 1)
 	}
 
-	return time.Date(
-		date.Year(),
-		date.Month(),
-		date.Day(),
-		result.Hour(),
-		result.Minute(),
-		result.Second(),
-		result.Nanosecond(),
-		time.Local,
-	), nil
+	return result, nil
 }
 
 // SessionPart is an interface that allows any parsed type to be applied to a Session

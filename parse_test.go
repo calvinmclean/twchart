@@ -275,3 +275,32 @@ func TestDoneTimeUnmarshalJSON(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC), time.Time(d))
 }
+
+func TestParseWithStageOver24Hours(t *testing.T) {
+	input := `Pulled Pork
+
+Date: 2025-12-12
+
+Ambient Probe: 1
+Shoulder 1 Probe: 2
+Shoulder 2 Probe: 3
+Grill Probe: 4
+
+Prep: 10:30AM
+Note: 10:30AM: add 7.25tsp/50.3g Morton Kosher Salt to 14.89lb boneless pork shoulder (2 shoulders)
+
+Note: 11:59PM: nothing happened, but I need this so I can move to tomorrow
+
+Note: 7:20PM: now it is Saturday
+
+Cooking: 10:00PM`
+
+	var s Session
+	_, err := io.Copy(&s, bytes.NewReader([]byte(input)))
+	assert.NoError(t, err)
+
+	prepStage := s.Stages[0]
+	assert.Equal(t, "Prep", prepStage.Name)
+	assert.Equal(t, 12, prepStage.Start.Day())
+	assert.Equal(t, 13, prepStage.End.Day())
+}
