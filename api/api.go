@@ -49,10 +49,15 @@ func (s *sessionResource) Patch(newSession *sessionResource) *babyapi.ErrRespons
 
 type API struct {
 	*babyapi.API[*sessionResource]
+
+	// this currently won't work correctly for multiple users viewing the same session, but that's fine
+	sseChans map[string]chan *babyapi.ServerSentEvent
 }
 
 func New() API {
-	api := API{}
+	api := API{
+		sseChans: map[string]chan *babyapi.ServerSentEvent{},
+	}
 	api.API = babyapi.NewAPI("Sessions", "/sessions", func() *sessionResource { return &sessionResource{} })
 	api.API.AddCustomRootRoute(http.MethodGet, "/", http.RedirectHandler("/sessions", http.StatusFound))
 	api.API.AddCustomRoute(http.MethodPost, "/upload-csv", babyapi.Handler(api.loadCSVToLatestSession))
@@ -63,6 +68,7 @@ func New() API {
 	api.API.AddCustomIDRoute(http.MethodPost, "/add-event", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.Event](api)))
 	api.API.AddCustomIDRoute(http.MethodPost, "/add-stage", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.Stage](api)))
 	api.API.AddCustomIDRoute(http.MethodPost, "/done", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.DoneTime](api)))
+	api.API.AddCustomIDRoute(http.MethodGet, "/updates", http.HandlerFunc(api.sseUpdateHandler))
 
 	// Use custom text unmarshalling/decoding for Sessions
 	render.Decode = func(r *http.Request, v any) error {
@@ -89,8 +95,34 @@ func New() API {
 	return api
 }
 
+func (a API) sseUpdateHandler(w http.ResponseWriter, r *http.Request) {
+	id := a.API.GetIDParam(r)
+
+	sseChan := make(chan *babyapi.ServerSentEvent)
+	a.sseChans[id] = sseChan
+	defer func() {
+		close(sseChan)
+		delete(a.sseChans, id)
+	}()
+
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Content-Type", "text/event-stream")
+
+	for {
+		select {
+		case e := <-sseChan:
+			e.Write(w)
+		case <-r.Context().Done():
+			return
+		case <-a.Done():
+			return
+		}
+	}
+}
+
 func sessionPartHandler[T twchart.SessionPart](a API) func(http.ResponseWriter, *http.Request, *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
-	return func(_ http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
+	return func(w http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {
 		var sessionPart T
 		if err := render.DefaultDecoder(r, &sessionPart); err != nil {
 			return nil, babyapi.ErrInvalidRequest(fmt.Errorf("error parsing SessionPart: %w", err))
@@ -102,6 +134,36 @@ func sessionPartHandler[T twchart.SessionPart](a API) func(http.ResponseWriter, 
 		if err != nil {
 			return nil, babyapi.InternalServerError(err)
 		}
+
+		logger := babyapi.GetLoggerFromContext(r.Context())
+
+		// use ServerSentEvents to provide live updates to the UI
+		sseChan, ok := a.sseChans[sr.GetID()]
+		if !ok {
+			logger.Info("no listeners for server-sent event")
+			return nil, nil
+		}
+
+		event := &babyapi.ServerSentEvent{}
+		switch any(sessionPart).(type) {
+		case twchart.Event:
+			event.Event = "newSessionEvent"
+			event.Data = eventRow.Render(r, sessionPart)
+		case twchart.Stage:
+			event.Event = "newSessionStage"
+			event.Data = stageRow.Render(r, sessionPart)
+		case twchart.DoneTime:
+			return nil, nil
+			// nothing to do here since we don't append a stage and instead mark the last as ended.
+			// not worth the effort to do right now
+		}
+
+		select {
+		case sseChan <- event:
+		default:
+			logger.Info("no listeners for server-sent event")
+		}
+
 		return nil, nil
 	}
 }

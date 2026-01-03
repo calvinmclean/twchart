@@ -60,6 +60,21 @@ const (
 </html>
 {{ end }}`
 
+	stageRow         = html.Template("stageRow")
+	stageRowTemplate = `<tr>
+    <td>{{ .Name }}</td>
+    <td>{{ .Start.Format "3:04PM" }}</td>
+    <td>{{ if not .End.IsZero }}{{ .End.Format "3:04PM" }}{{ else }}–{{ end }}</td>
+    <td>{{ if .Duration }}{{ .Duration }}{{ else }}–{{ end }}</td>
+</tr>`
+
+	eventRow         = html.Template("eventRow")
+	eventRowTemplate = `<li class="uk-flex uk-flex-between">
+    <span>{{ .Note }}</span>
+    <span class="uk-text-meta">{{ .Time.Format "3:04PM" }}</span>
+</li>
+`
+
 	sessionDetail         = html.Template("sessionDetail")
 	sessionDetailTemplate = `{{ define "sessionDetail" }}
 <!DOCTYPE html>
@@ -71,8 +86,11 @@ const (
    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
    <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit.min.js"></script>
    <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit-icons.min.js"></script>
+
+   <script src="https://unpkg.com/htmx.org@1.9.8"></script>
+   <script src="https://unpkg.com/htmx.org/dist/ext/sse.js"></script>
 </head>
-<body class="uk-background-muted uk-padding">
+<body class="uk-background-muted uk-padding" hx-ext="sse" sse-connect="/sessions/{{ .DefaultResource.ID }}/updates">
    <div class="uk-container uk-container-small">
 	    <ul class="uk-breadcrumb uk-margin-small-top">
 	        <li><a href="/sessions">Sessions</a></li>
@@ -87,7 +105,6 @@ const (
        <p class="uk-text-meta">{{ .Session.Date.Format "Monday, Jan 2, 2006" }}</p>
 
        <!-- Stages -->
-       {{ if .Session.Stages }}
        <div class="uk-card uk-card-default uk-card-body uk-margin">
            <h3 class="uk-card-title">Stages</h3>
            <div class="uk-overflow-auto">
@@ -100,35 +117,24 @@ const (
 	                        <th>Duration</th>
 	                    </tr>
 	                </thead>
-	                <tbody>
+	                <tbody sse-swap="newSessionStage" hx-swap="beforeend">
 	                {{ range .Session.Stages }}
-	                    <tr>
-	                        <td>{{ .Name }}</td>
-	                        <td>{{ .Start.Format "3:04PM" }}</td>
-	                        <td>{{ if not .End.IsZero }}{{ .End.Format "3:04PM" }}{{ else }}–{{ end }}</td>
-	                        <td>{{ if .Duration }}{{ .Duration }}{{ else }}–{{ end }}</td>
-	                    </tr>
+						{{ template "stageRow" . }}
 	                {{ end }}
 	                </tbody>
 	            </table>
            </div>
        </div>
-       {{ end }}
 
        <!-- Events -->
-       {{ if .Session.Events }}
        <div class="uk-card uk-card-default uk-card-body uk-margin">
            <h3 class="uk-card-title">Notes</h3>
-           <ul class="uk-list uk-list-striped">
+           <ul class="uk-list uk-list-striped" sse-swap="newSessionEvent" hx-swap="beforeend">
                {{ range .Session.Events }}
-               <li class="uk-flex uk-flex-between">
-                   <span>{{ .Note }}</span>
-                   <span class="uk-text-meta">{{ .Time.Format "3:04PM" }}</span>
-               </li>
+                   {{ template "eventRow" . }}
                {{ end }}
            </ul>
        </div>
-       {{ end }}
 
        <!-- Probes -->
        {{ if .Session.Probes }}
@@ -192,6 +198,8 @@ func init() {
 		string(sessionDetail): sessionDetailTemplate,
 		string(listSessions):  listSessionsTemplate,
 		string(chartView):     chartViewTemplate,
+		string(stageRow):      stageRowTemplate,
+		string(eventRow):      eventRowTemplate,
 	})
 }
 
