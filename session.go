@@ -9,10 +9,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/calvinmclean/babyapi"
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
 type Session struct {
+	ID babyapi.ID
+
 	Name      string
 	Date      time.Time
 	StartTime time.Time
@@ -22,6 +25,8 @@ type Session struct {
 	Events []Event
 
 	Data []ThermoworksData
+
+	UploadedAt time.Time
 }
 
 type Stage struct {
@@ -124,4 +129,8 @@ func (s Session) TimeBounds() (time.Time, time.Time) {
 	}
 
 	return earliestTime, latestTime
+}
+
+func (s Session) GetID() string {
+	return s.ID.String()
 }

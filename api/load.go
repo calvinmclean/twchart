@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/calvinmclean/twchart"
-
-	"github.com/calvinmclean/babyapi"
 )
 
 // Load data from files and store in the API's store
@@ -30,7 +28,7 @@ func (a *API) Load(dir string) error {
 			return fmt.Errorf("error creating chart for %q: %v", path, err)
 		}
 
-		s := &sessionResource{DefaultResource: babyapi.NewDefaultResource(), Session: session}
+		s := &sessionResource{Session: session}
 		fmt.Printf("Loaded %s/%s\n", s.GetID(), s.Session.Name)
 		err = a.Storage.Set(context.Background(), s)
 		if err != nil {

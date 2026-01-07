@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/calvinmclean/twchart"
+	"github.com/calvinmclean/twchart/storage"
 
 	"github.com/calvinmclean/babyapi"
 	"github.com/calvinmclean/babyapi/extensions"
@@ -15,9 +18,16 @@ import (
 )
 
 type sessionResource struct {
-	babyapi.DefaultResource
-	Session    twchart.Session
-	UploadedAt time.Time
+	*babyapi.DefaultRenderer
+	twchart.Session
+}
+
+func (s sessionResource) GetID() string {
+	return s.Session.ID.String()
+}
+
+func (s sessionResource) ParentID() string {
+	return ""
 }
 
 var _ babyapi.HTMLer = &sessionResource{}
@@ -27,11 +37,11 @@ func (s sessionResource) HTML(w http.ResponseWriter, r *http.Request) string {
 }
 
 func (s *sessionResource) Bind(r *http.Request) error {
-	if s.UploadedAt.Equal(time.Time{}) {
-		s.UploadedAt = time.Now()
+	if s.Session.UploadedAt.Equal(time.Time{}) {
+		s.Session.UploadedAt = time.Now()
 	}
 
-	err := s.DefaultResource.Bind(r)
+	err := s.Session.ID.Bind(r)
 	if err != nil {
 		return err
 	}
@@ -176,9 +186,9 @@ func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) ren
 		return babyapi.InternalServerError(err)
 	}
 
-	latest := &sessionResource{UploadedAt: time.Time{}}
+	latest := &sessionResource{Session: twchart.Session{UploadedAt: time.Time{}}}
 	for _, s := range allSessions {
-		if s.UploadedAt.After(latest.UploadedAt) {
+		if s.Session.UploadedAt.After(latest.Session.UploadedAt) {
 			latest = s
 		}
 	}
@@ -202,10 +212,25 @@ func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) ren
 	return nil
 }
 
-func (a *API) Setup(storeFilename string) {
-	a.API.ApplyExtension(extensions.KeyValueStorage[*sessionResource]{
-		KVConnectionConfig: extensions.KVConnectionConfig{Filename: storeFilename},
-	})
+func (a *API) Setup(storeFilename string) error {
+	ext := filepath.Ext(storeFilename)
+	switch ext {
+	case ".json":
+		a.API.ApplyExtension(extensions.KeyValueStorage[*sessionResource]{
+			KVConnectionConfig: extensions.KVConnectionConfig{Filename: storeFilename},
+		})
+		return nil
+	case ".sql", ".sqlite", ".db":
+		storageClient, err := storage.New(storeFilename)
+		if err != nil {
+			log.Fatalf("error creating DB client: %v", err)
+		}
+		a.API.Storage = storageAdapter{storageClient}
+		return nil
+	default:
+		return fmt.Errorf("unexpected extension for store file: %s", ext)
+	}
+
 }
 
 func (*API) renderChart(w http.ResponseWriter, r *http.Request, sr *sessionResource) (render.Renderer, *babyapi.ErrResponse) {

@@ -20,7 +20,10 @@ func main() {
 
 		storeFlag := c.Flag("store")
 		if storeFlag != nil && storeFlag.Value.String() != "" {
-			api.Setup(storeFlag.Value.String())
+			err := api.Setup(storeFlag.Value.String())
+			if err != nil {
+				return fmt.Errorf("error setting up storage: %w", err)
+			}
 		}
 
 		dirFlag := c.Flag("dir")
