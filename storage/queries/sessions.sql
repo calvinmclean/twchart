@@ -22,3 +22,8 @@ RETURNING *;
 
 -- name: DeleteSession :exec
 DELETE FROM sessions WHERE id = ?;
+
+-- name: GetLatestSessionID :one
+SELECT id FROM sessions
+ORDER BY uploaded_at DESC
+LIMIT 1;

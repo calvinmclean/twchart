@@ -18,7 +18,7 @@ type storageAdapter struct {
 	*storage.Client
 }
 
-var _ babyapi.Storage[*sessionResource] = storageAdapter{}
+var _ babyapi.Storage[*SessionResource] = storageAdapter{}
 
 // Convert database models to API resource
 func (c storageAdapter) dbSessionToAPIResource(
@@ -27,8 +27,8 @@ func (c storageAdapter) dbSessionToAPIResource(
 	stages []db.Stage,
 	events []db.Event,
 	thermoworksData []db.ThermoworksDatum,
-) (*sessionResource, error) {
-	resource := &sessionResource{
+) (*SessionResource, error) {
+	resource := &SessionResource{
 		Session: twchart.Session{
 			Name:       session.Name,
 			Date:       session.Date,
@@ -72,7 +72,13 @@ func (c storageAdapter) dbSessionToAPIResource(
 		})
 	}
 
-	// Convert thermoworks data
+	resource.Session.Data = thermoworksDataFromDB(thermoworksData)
+
+	return resource, nil
+}
+
+func thermoworksDataFromDB(thermoworksData []db.ThermoworksDatum) []twchart.ThermoworksData {
+	out := []twchart.ThermoworksData{}
 	for _, data := range thermoworksData {
 		td := twchart.ThermoworksData{
 			Time: data.Timestamp,
@@ -99,13 +105,12 @@ func (c storageAdapter) dbSessionToAPIResource(
 		}
 		td.ProbeData = probeData
 
-		resource.Session.Data = append(resource.Session.Data, td)
+		out = append(out, td)
 	}
-
-	return resource, nil
+	return out
 }
 
-func (c storageAdapter) Get(ctx context.Context, id string) (*sessionResource, error) {
+func (c storageAdapter) Get(ctx context.Context, id string) (*SessionResource, error) {
 	session, err := c.Queries.GetSession(ctx, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -129,57 +134,33 @@ func (c storageAdapter) Get(ctx context.Context, id string) (*sessionResource, e
 		return nil, fmt.Errorf("error getting events: %w", err)
 	}
 
-	thermoworksData, err := c.Queries.GetThermoworksDataBySession(ctx, id)
-	if err != nil {
-		return nil, fmt.Errorf("error getting thermoworks data: %w", err)
-	}
-
-	resource, err := c.dbSessionToAPIResource(session, probes, stages, events, thermoworksData)
+	resource, err := c.dbSessionToAPIResource(session, probes, stages, events, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error converting session to API resource: %w", err)
 	}
 	return resource, nil
 }
 
-func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) ([]*sessionResource, error) {
+func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) ([]*SessionResource, error) {
 	sessions, err := c.Queries.ListSessions(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error listing sessions: %w", err)
 	}
 
-	var resources []*sessionResource
+	var resources []*SessionResource
 	for _, session := range sessions {
-		probes, err := c.Queries.GetProbesBySession(ctx, session.ID)
+		sessionResource, err := c.Get(ctx, session.ID)
 		if err != nil {
-			return nil, fmt.Errorf("error getting probes for session %s: %w", session.ID, err)
+			return nil, fmt.Errorf("error getting session: %w", err)
 		}
 
-		stages, err := c.Queries.GetStagesBySession(ctx, session.ID)
-		if err != nil {
-			return nil, fmt.Errorf("error getting stages for session %s: %w", session.ID, err)
-		}
-
-		events, err := c.Queries.GetEventsBySession(ctx, session.ID)
-		if err != nil {
-			return nil, fmt.Errorf("error getting events for session %s: %w", session.ID, err)
-		}
-
-		thermoworksData, err := c.Queries.GetThermoworksDataBySession(ctx, session.ID)
-		if err != nil {
-			return nil, fmt.Errorf("error getting thermoworks data for session %s: %w", session.ID, err)
-		}
-
-		resource, err := c.dbSessionToAPIResource(session, probes, stages, events, thermoworksData)
-		if err != nil {
-			return nil, fmt.Errorf("error converting session to API resource: %w", err)
-		}
-		resources = append(resources, resource)
+		resources = append(resources, sessionResource)
 	}
 
 	return resources, nil
 }
 
-func (c storageAdapter) Set(ctx context.Context, sessionResource *sessionResource) error {
+func (c storageAdapter) Set(ctx context.Context, sessionResource *SessionResource) error {
 	sessionID := string(sessionResource.GetID())
 
 	// Check if session exists
@@ -270,7 +251,16 @@ func (c storageAdapter) Set(ctx context.Context, sessionResource *sessionResourc
 	}
 
 	// Insert thermoworks data
-	for _, data := range sessionResource.Session.Data {
+	err = c.storeThermoworksData(ctx, sessionID, sessionResource.Session.Data)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c storageAdapter) storeThermoworksData(ctx context.Context, sessionID string, data []twchart.ThermoworksData) error {
+	for _, data := range data {
 		probeData := make([]sql.NullFloat64, 6)
 		for i, temp := range data.ProbeData {
 			if i < len(probeData) && temp > 0 {
@@ -278,7 +268,7 @@ func (c storageAdapter) Set(ctx context.Context, sessionResource *sessionResourc
 			}
 		}
 
-		_, err = c.Queries.CreateThermoworksData(ctx, db.CreateThermoworksDataParams{
+		_, err := c.Queries.CreateThermoworksData(ctx, db.CreateThermoworksDataParams{
 			SessionID:  sessionID,
 			Timestamp:  data.Time,
 			Probe1Temp: probeData[0],

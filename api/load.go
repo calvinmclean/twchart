@@ -28,7 +28,7 @@ func (a *API) Load(dir string) error {
 			return fmt.Errorf("error creating chart for %q: %v", path, err)
 		}
 
-		s := &sessionResource{Session: session}
+		s := &SessionResource{Session: session}
 		fmt.Printf("Loaded %s/%s\n", s.GetID(), s.Session.Name)
 		err = a.Storage.Set(context.Background(), s)
 		if err != nil {

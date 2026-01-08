@@ -205,7 +205,7 @@ func init() {
 
 // allSessionsWrapper allows rendering an HTML page that lists all charts
 type allSessionsWrapper struct {
-	babyapi.ResourceList[*sessionResource]
+	babyapi.ResourceList[*SessionResource]
 }
 
 func (as allSessionsWrapper) Render(w http.ResponseWriter, r *http.Request) error {
@@ -213,7 +213,7 @@ func (as allSessionsWrapper) Render(w http.ResponseWriter, r *http.Request) erro
 }
 
 func (as allSessionsWrapper) HTML(_ http.ResponseWriter, r *http.Request) string {
-	slices.SortFunc(as.Items, func(a, b *sessionResource) int {
+	slices.SortFunc(as.Items, func(a, b *SessionResource) int {
 		return b.Session.StartTime.Compare(a.Session.StartTime)
 	})
 	return listSessions.Render(r, as.Items)

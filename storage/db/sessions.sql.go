@@ -58,6 +58,19 @@ func (q *Queries) DeleteSession(ctx context.Context, id string) error {
 	return err
 }
 
+const getLatestSessionID = `-- name: GetLatestSessionID :one
+SELECT id FROM sessions
+ORDER BY uploaded_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestSessionID(ctx context.Context) (string, error) {
+	row := q.db.QueryRowContext(ctx, getLatestSessionID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getSession = `-- name: GetSession :one
 SELECT id, name, date, start_time, uploaded_at, created_at, updated_at FROM sessions
 WHERE id = ?
