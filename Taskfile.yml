@@ -1,5 +1,8 @@
 version: "3"
 
+vars:
+  SQLITE_DB_PATH: "store.db"
+
 tasks:
   dev:
     aliases: ["d"]
@@ -8,4 +11,40 @@ tasks:
     #   PUSHOVER_RECIPIENT_TOKEN: placeholder
     #   PUSHOVER_APP_TOKEN: placeholder
     cmds:
-      - go run cmd/twchart/main.go serve --store data.json
+      - go run cmd/twchart/main.go serve --store {{ .SQLITE_DB_PATH }}
+
+  migrate:
+    desc: Run the migrate command with optional CLI args
+    deps:
+      - install-migrate
+    cmds:
+      - migrate -path migrations -database "sqlite3://{{ .SQLITE_DB_PATH }}" {{ .ACTION | default .CLI_ARGS }}
+
+  migrate-up:
+    desc: Run UP migrations
+    cmds:
+      - task: migrate
+        vars:
+          ACTION: up
+
+  migrate-drop:
+    desc: Drop database schema
+    cmds:
+      - task: migrate
+        vars:
+          ACTION: drop -f
+
+  install-migrate:
+    desc: Install golang-migrate if not already installed
+    status:
+      - command -v migrate
+    cmds:
+      - go install -tags 'sqlite3,postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+  migrate-create:
+    desc: Create a new migration file
+    deps:
+      - install-migrate
+    cmds:
+      - migrate create -ext sql -dir migrations -seq {{ .CLI_ARGS }}
+    silent: true
