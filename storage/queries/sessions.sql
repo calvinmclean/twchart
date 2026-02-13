@@ -8,15 +8,15 @@ ORDER BY uploaded_at DESC;
 
 -- name: CreateSession :one
 INSERT INTO sessions (
-    id, name, date, start_time, uploaded_at
+    id, name, type, date, start_time, uploaded_at
 ) VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 )
 RETURNING *;
 
 -- name: UpdateSession :one
 UPDATE sessions
-SET name = ?, date = ?, start_time = ?, updated_at = CURRENT_TIMESTAMP
+SET name = ?, type = ?, date = ?, start_time = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
 RETURNING *;
 

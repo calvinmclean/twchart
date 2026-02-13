@@ -13,10 +13,22 @@ import (
 	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
+// SessionType represents the type of cooking session
+type SessionType string
+
+const (
+	SessionTypeNone   SessionType = ""
+	SessionTypeCoffee SessionType = "coffee"
+	SessionTypeBread  SessionType = "bread"
+	SessionTypeBBQ    SessionType = "bbq"
+	SessionTypeOther  SessionType = "other"
+)
+
 type Session struct {
 	ID babyapi.ID
 
 	Name      string
+	Type      SessionType
 	Date      time.Time
 	StartTime time.Time
 

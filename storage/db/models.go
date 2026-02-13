@@ -31,6 +31,7 @@ type Session struct {
 	UploadedAt time.Time
 	CreatedAt  sql.NullTime
 	UpdatedAt  sql.NullTime
+	Type       string
 }
 
 type Stage struct {

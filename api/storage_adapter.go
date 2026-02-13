@@ -31,6 +31,7 @@ func (c storageAdapter) dbSessionToAPIResource(
 	resource := &SessionResource{
 		Session: twchart.Session{
 			Name:       session.Name,
+			Type:       twchart.SessionType(session.Type),
 			Date:       session.Date,
 			StartTime:  session.StartTime.Time,
 			UploadedAt: session.UploadedAt,
@@ -174,6 +175,7 @@ func (c storageAdapter) Set(ctx context.Context, sessionResource *SessionResourc
 		_, err = c.Queries.CreateSession(ctx, db.CreateSessionParams{
 			ID:         sessionID,
 			Name:       sessionResource.Session.Name,
+			Type:       string(sessionResource.Session.Type),
 			Date:       sessionResource.Session.Date,
 			StartTime:  sql.NullTime{Time: sessionResource.Session.StartTime, Valid: !sessionResource.Session.StartTime.IsZero()},
 			UploadedAt: sessionResource.Session.UploadedAt,
@@ -185,6 +187,7 @@ func (c storageAdapter) Set(ctx context.Context, sessionResource *SessionResourc
 		// Update existing session
 		_, err = c.Queries.UpdateSession(ctx, db.UpdateSessionParams{
 			Name:      sessionResource.Session.Name,
+			Type:      string(sessionResource.Session.Type),
 			Date:      sessionResource.Session.Date,
 			StartTime: sql.NullTime{Time: sessionResource.Session.StartTime, Valid: !sessionResource.Session.StartTime.IsZero()},
 			ID:        sessionID,
