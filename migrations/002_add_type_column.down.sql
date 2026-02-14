@@ -1,1 +1,1 @@
-ALTER TABLE sessions DROP COLUMN type;
+ALTER TABLE sessions DROP COLUMN IF EXISTS type;
