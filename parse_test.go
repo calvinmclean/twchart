@@ -137,11 +137,57 @@ func TestParseLine(t *testing.T) {
 		assert.Equal(t, time.Date(2025, time.May, 24, 0, 0, 0, 0, time.Local), s.Date)
 		assert.Equal(t, time.Date(2025, time.May, 24, 0, 0, 0, 0, time.Local), currentDate)
 	})
+
+	t.Run("ParseType", func(t *testing.T) {
+		s := &Session{}
+		currentDate := time.Date(2025, time.May, 1, 0, 0, 0, 0, time.Local)
+
+		t.Run("Coffee", func(t *testing.T) {
+			input := "Type: coffee"
+			result, _, err := ParseLine([]byte(input), currentDate, currentDate)
+			assert.NoError(t, err)
+			result.AddToSession(s)
+			assert.Equal(t, SessionTypeCoffee, s.Type)
+		})
+
+		t.Run("Bread", func(t *testing.T) {
+			input := "Type: bread"
+			result, _, err := ParseLine([]byte(input), currentDate, currentDate)
+			assert.NoError(t, err)
+			result.AddToSession(s)
+			assert.Equal(t, SessionTypeBread, s.Type)
+		})
+
+		t.Run("BBQ", func(t *testing.T) {
+			input := "Type: bbq"
+			result, _, err := ParseLine([]byte(input), currentDate, currentDate)
+			assert.NoError(t, err)
+			result.AddToSession(s)
+			assert.Equal(t, SessionTypeBBQ, s.Type)
+		})
+
+		t.Run("Other", func(t *testing.T) {
+			input := "Type: other"
+			result, _, err := ParseLine([]byte(input), currentDate, currentDate)
+			assert.NoError(t, err)
+			result.AddToSession(s)
+			assert.Equal(t, SessionTypeOther, s.Type)
+		})
+
+		t.Run("UnknownType", func(t *testing.T) {
+			input := "Type: unknown"
+			result, _, err := ParseLine([]byte(input), currentDate, currentDate)
+			assert.NoError(t, err)
+			result.AddToSession(s)
+			assert.Equal(t, SessionType("unknown"), s.Type)
+		})
+	})
 }
 
 func TestParse(t *testing.T) {
 	input := `Ciabatta
 Date: 2025-05-24
+Type: bread
 
 Ambient Probe: 1
 Oven Probe: 2
@@ -166,11 +212,11 @@ Note: 12:00PM: bread is delicious and crunchy
 `
 
 	var s Session
-	// err := s.UnmarshalText([]byte(input))
 	_, err := io.Copy(&s, bytes.NewReader([]byte(input)))
 	assert.NoError(t, err)
 	assert.Equal(t, Session{
 		Name:      "Ciabatta",
+		Type:      SessionTypeBread,
 		Date:      time.Date(2025, time.May, 24, 0, 0, 0, 0, time.Local),
 		StartTime: time.Date(2025, time.May, 24, 18, 50, 0, 0, time.Local),
 		Stages: []Stage{
@@ -218,6 +264,7 @@ Note: 12:00PM: bread is delicious and crunchy
 func TestParse_TimeSinceStart(t *testing.T) {
 	input := `Coffee
 Date: 2025-05-24
+Type: coffee
 
 Ambient Probe: 1
 Bean Probe: 2
@@ -244,6 +291,7 @@ Done: 10m30s
 	assert.NoError(t, err)
 	assert.Equal(t, Session{
 		Name:      "Coffee",
+		Type:      SessionTypeCoffee,
 		Date:      time.Date(2025, time.May, 24, 0, 0, 0, 0, time.Local),
 		StartTime: time.Date(2025, time.May, 24, 20, 0, 0, 0, time.Local),
 		Stages: []Stage{
@@ -298,6 +346,7 @@ func TestParseWithStageOver24Hours(t *testing.T) {
 	input := `Pulled Pork
 
 Date: 2025-12-12
+Type: BBQ
 
 Ambient Probe: 1
 Shoulder 1 Probe: 2
@@ -319,6 +368,7 @@ Cooking: 10:00PM`
 
 	prepStage := s.Stages[0]
 	assert.Equal(t, "Prep", prepStage.Name)
+	assert.Equal(t, SessionTypeBBQ, s.Type)
 	assert.Equal(t, 12, prepStage.Start.Day())
 	assert.Equal(t, 13, prepStage.End.Day())
 }
