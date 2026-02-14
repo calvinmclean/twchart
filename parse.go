@@ -161,6 +161,12 @@ func (sd SessionDate) AddToSession(s *Session) {
 	s.Date = time.Time(sd)
 }
 
+type SessionTypeVal SessionType
+
+func (st SessionTypeVal) AddToSession(s *Session) {
+	s.Type = SessionType(st)
+}
+
 func (e Event) AddToSession(s *Session) {
 	s.Events = append(s.Events, e)
 }
@@ -218,6 +224,10 @@ func ParseLine(in []byte, currentDate, startTime time.Time) (SessionPart, time.T
 			return nil, currentDate, fmt.Errorf("error parsing date: %w", err)
 		}
 		return SessionDate(date), date, nil
+	}
+
+	if strings.ToLower(stageName) == "type" {
+		return SessionTypeVal(strings.ToLower(stageTimeStr)), currentDate, nil
 	}
 
 	stageTime, err := parseTime(stageTimeStr, currentDate, startTime)

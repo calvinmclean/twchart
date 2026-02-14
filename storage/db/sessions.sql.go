@@ -13,16 +13,17 @@ import (
 
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (
-    id, name, date, start_time, uploaded_at
+    id, name, type, date, start_time, uploaded_at
 ) VALUES (
-    ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?
 )
-RETURNING id, name, date, start_time, uploaded_at, created_at, updated_at
+RETURNING id, name, date, start_time, uploaded_at, created_at, updated_at, type
 `
 
 type CreateSessionParams struct {
 	ID         string
 	Name       string
+	Type       string
 	Date       time.Time
 	StartTime  sql.NullTime
 	UploadedAt time.Time
@@ -32,6 +33,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 	row := q.db.QueryRowContext(ctx, createSession,
 		arg.ID,
 		arg.Name,
+		arg.Type,
 		arg.Date,
 		arg.StartTime,
 		arg.UploadedAt,
@@ -45,6 +47,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 		&i.UploadedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Type,
 	)
 	return i, err
 }
@@ -72,7 +75,7 @@ func (q *Queries) GetLatestSessionID(ctx context.Context) (string, error) {
 }
 
 const getSession = `-- name: GetSession :one
-SELECT id, name, date, start_time, uploaded_at, created_at, updated_at FROM sessions
+SELECT id, name, date, start_time, uploaded_at, created_at, updated_at, type FROM sessions
 WHERE id = ?
 `
 
@@ -87,12 +90,13 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 		&i.UploadedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Type,
 	)
 	return i, err
 }
 
 const listSessions = `-- name: ListSessions :many
-SELECT id, name, date, start_time, uploaded_at, created_at, updated_at FROM sessions
+SELECT id, name, date, start_time, uploaded_at, created_at, updated_at, type FROM sessions
 ORDER BY uploaded_at DESC
 `
 
@@ -113,6 +117,7 @@ func (q *Queries) ListSessions(ctx context.Context) ([]Session, error) {
 			&i.UploadedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Type,
 		); err != nil {
 			return nil, err
 		}
@@ -129,13 +134,14 @@ func (q *Queries) ListSessions(ctx context.Context) ([]Session, error) {
 
 const updateSession = `-- name: UpdateSession :one
 UPDATE sessions
-SET name = ?, date = ?, start_time = ?, updated_at = CURRENT_TIMESTAMP
+SET name = ?, type = ?, date = ?, start_time = ?, updated_at = CURRENT_TIMESTAMP
 WHERE id = ?
-RETURNING id, name, date, start_time, uploaded_at, created_at, updated_at
+RETURNING id, name, date, start_time, uploaded_at, created_at, updated_at, type
 `
 
 type UpdateSessionParams struct {
 	Name      string
+	Type      string
 	Date      time.Time
 	StartTime sql.NullTime
 	ID        string
@@ -144,6 +150,7 @@ type UpdateSessionParams struct {
 func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (Session, error) {
 	row := q.db.QueryRowContext(ctx, updateSession,
 		arg.Name,
+		arg.Type,
 		arg.Date,
 		arg.StartTime,
 		arg.ID,
@@ -157,6 +164,7 @@ func (q *Queries) UpdateSession(ctx context.Context, arg UpdateSessionParams) (S
 		&i.UploadedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Type,
 	)
 	return i, err
 }

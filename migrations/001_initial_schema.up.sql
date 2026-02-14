@@ -1,4 +1,5 @@
 -- SQLite schema for twchart application
+-- Initial schema migration
 
 -- Main sessions table
 CREATE TABLE IF NOT EXISTS sessions (
