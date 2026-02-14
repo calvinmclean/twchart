@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/calvinmclean/babyapi"
 	"github.com/calvinmclean/babyapi/html"
@@ -39,6 +40,7 @@ const (
                 <div>
                     <h3 class="uk-margin-remove">
                         <a class="uk-link-heading" href="/sessions/{{ .Session.ID }}">{{ .Session.Name }}</a>
+                        {{ if .Session.Type }}<span class="uk-label uk-margin-small-left" style="background-color: #e5e5e5; color: #666;">{{ .Session.Type }}</span>{{ end }}
                     </h3>
                     <p class="uk-text-meta uk-margin-remove-top">
                         {{ .Session.Date.Format "Monday, Jan 2, 2006" }}
@@ -70,8 +72,15 @@ const (
 
 	eventRow         = html.Template("eventRow")
 	eventRowTemplate = `<li class="uk-flex uk-flex-between">
-    <span>{{ .Note }}</span>
-    <span class="uk-text-meta">{{ .Time.Format "3:04PM" }}</span>
+    <span>{{ .Event.Note }}</span>
+    <span class="uk-text-meta">
+        {{ .Event.Time.Format "3:04PM" }}
+        {{ if not (isZeroTime .PrevEventTime) }}
+            <span class="uk-text-muted">(+{{ .Event.Time.Sub .PrevEventTime | formatDuration }})</span>
+        {{ else if not (isZeroTime .SessionStartTime) }}
+            <span class="uk-text-muted">(+{{ .Event.Time.Sub .SessionStartTime | formatDuration }})</span>
+        {{ end }}
+    </span>
 </li>
 `
 
@@ -126,15 +135,20 @@ const (
            </div>
        </div>
 
-       <!-- Events -->
-       <div class="uk-card uk-card-default uk-card-body uk-margin">
-           <h3 class="uk-card-title">Notes</h3>
-           <ul class="uk-list uk-list-striped" sse-swap="newSessionEvent" hx-swap="beforeend">
-               {{ range .Session.Events }}
-                   {{ template "eventRow" . }}
-               {{ end }}
-           </ul>
-       </div>
+        <!-- Events -->
+        <div class="uk-card uk-card-default uk-card-body uk-margin">
+            <h3 class="uk-card-title">Notes</h3>
+            <ul class="uk-list uk-list-striped" sse-swap="newSessionEvent" hx-swap="beforeend">
+                {{ range $i, $e := .Session.Events }}
+                    {{ $prevTime := zeroTime }}
+                    {{ if gt $i 0 }}
+                        {{ $prev := index $.Session.Events (sub $i 1) }}
+                        {{ $prevTime = $prev.Time }}
+                    {{ end }}
+                    {{ template "eventRow" dict "Event" $e "PrevEventTime" $prevTime "SessionStartTime" $.Session.StartTime }}
+                {{ end }}
+            </ul>
+        </div>
 
        <!-- Probes -->
        {{ if .Session.Probes }}
@@ -200,6 +214,37 @@ func init() {
 		string(chartView):     chartViewTemplate,
 		string(stageRow):      stageRowTemplate,
 		string(eventRow):      eventRowTemplate,
+	})
+
+	html.SetFuncs(func(r *http.Request) map[string]any {
+		return map[string]any{
+			"sub": func(a, b int) int {
+				return a - b
+			},
+			"dict": func(values ...any) map[string]any {
+				if len(values)%2 != 0 {
+					panic("dict requires an even number of arguments")
+				}
+				dict := make(map[string]any, len(values)/2)
+				for i := 0; i < len(values); i += 2 {
+					key, ok := values[i].(string)
+					if !ok {
+						panic("dict keys must be strings")
+					}
+					dict[key] = values[i+1]
+				}
+				return dict
+			},
+			"zeroTime": func() time.Time {
+				return time.Time{}
+			},
+			"isZeroTime": func(t time.Time) bool {
+				return t.IsZero()
+			},
+			"formatDuration": func(d time.Duration) string {
+				return d.String()
+			},
+		}
 	})
 }
 

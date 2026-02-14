@@ -167,10 +167,21 @@ func sessionPartHandler[T twchart.SessionPart](a *API) func(http.ResponseWriter,
 		}
 
 		event := &babyapi.ServerSentEvent{}
-		switch any(sessionPart).(type) {
+		switch part := any(sessionPart).(type) {
 		case twchart.Event:
 			event.Event = "newSessionEvent"
-			event.Data = eventRow.Render(r, sessionPart)
+			// Find previous event time for duration calculation
+			var prevEventTime time.Time
+			events := sr.Session.Events
+			// The new event is already added, so the previous event is the second-to-last
+			if len(events) > 1 {
+				prevEventTime = events[len(events)-2].Time
+			}
+			event.Data = eventRow.Render(r, map[string]any{
+				"Event":            part,
+				"PrevEventTime":    prevEventTime,
+				"SessionStartTime": sr.Session.StartTime,
+			})
 		case twchart.Stage:
 			event.Event = "newSessionStage"
 			event.Data = stageRow.Render(r, sessionPart)
