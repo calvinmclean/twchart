@@ -9,6 +9,22 @@ import (
 	"github.com/calvinmclean/babyapi/html"
 )
 
+// getUniqueTypes extracts unique non-empty type values from sessions
+func getUniqueTypes(sessions []*SessionResource) []string {
+	typeMap := make(map[string]bool)
+	for _, s := range sessions {
+		if s.Session.Type != "" {
+			typeMap[string(s.Session.Type)] = true
+		}
+	}
+	types := make([]string, 0, len(typeMap))
+	for t := range typeMap {
+		types = append(types, t)
+	}
+	slices.Sort(types)
+	return types
+}
+
 const (
 	listSessions         = html.Template("listSessions")
 	listSessionsTemplate = `{{ define "listSessions" }}
@@ -33,10 +49,21 @@ const (
             <h1 class="uk-heading-line"><span>Sessions</span></h1>
         </div>
 
+        <!-- Type Filter -->
+        <div class="uk-margin uk-flex uk-flex-middle">
+            <select id="type-filter" class="uk-select uk-form-width-medium">
+                <option value="">All Types</option>
+                {{ $types := getUniqueTypes . }}
+                {{ range $types }}
+                <option value="{{ . }}">{{ . }}</option>
+                {{ end }}
+            </select>
+        </div>
+
         {{ if . }}
-        <ul class="uk-list uk-list-divider uk-margin">
+        <ul id="sessions-list" class="uk-list uk-list-divider uk-margin">
             {{ range . }}
-            <li class="uk-flex uk-flex-between uk-flex-middle">
+            <li class="uk-flex uk-flex-between uk-flex-middle session-item" data-type="{{ .Session.Type }}">
                 <div>
                     <h3 class="uk-margin-remove">
                         <a class="uk-link-heading" href="/sessions/{{ .Session.ID }}">{{ .Session.Name }}</a>
@@ -57,6 +84,30 @@ const (
         {{ end }}
 
     </div>
+
+    <script>
+        document.getElementById('type-filter').addEventListener('change', function() {
+            var selectedType = this.value;
+            var items = document.querySelectorAll('.session-item');
+            var visibleCount = 0;
+
+            items.forEach(function(item) {
+                var itemType = item.getAttribute('data-type');
+                if (selectedType === '' || itemType === selectedType) {
+                    item.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+
+            // Show/hide the "No sessions found" message
+            var noSessionsMsg = document.querySelector('.uk-text-center.uk-text-muted');
+            if (noSessionsMsg) {
+                noSessionsMsg.style.display = visibleCount === 0 ? 'block' : 'none';
+            }
+        });
+    </script>
 
 </body>
 </html>
@@ -218,6 +269,7 @@ func init() {
 
 	html.SetFuncs(func(r *http.Request) map[string]any {
 		return map[string]any{
+			"getUniqueTypes": getUniqueTypes,
 			"sub": func(a, b int) int {
 				return a - b
 			},
