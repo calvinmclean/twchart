@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/calvinmclean/babyapi"
@@ -10,6 +11,10 @@ import (
 	"github.com/calvinmclean/twchart"
 	"github.com/calvinmclean/twchart/api"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/github"
 	"github.com/rs/xid"
 	"github.com/spf13/cobra"
 )
@@ -58,6 +63,18 @@ func main() {
 	}
 	migrateCmd.Flags().Bool("old", false, "use old format when reading the 'from' data")
 	cmd.AddCommand(migrateCmd)
+
+	dbMigrateCmd := &cobra.Command{
+		Use:   "db-migrate",
+		Short: "Run database schema migrations using golang-migrate",
+		Long:  "Run database schema migrations up or down using golang-migrate. Defaults to running all up migrations.",
+		RunE:  dbMigrateCommand,
+	}
+	dbMigrateCmd.Flags().String("database", "data.db", "SQLite database file path")
+	dbMigrateCmd.Flags().String("migrations", "github://calvinmclean/twchart/migrations#main", "Migration source: local path (e.g., 'migrations') or GitHub URL")
+	dbMigrateCmd.Flags().Bool("down", false, "Run down migrations instead of up")
+	dbMigrateCmd.Flags().Int("steps", 0, "Number of migrations to run (0 = all)")
+	cmd.AddCommand(dbMigrateCmd)
 
 	err := cmd.Execute()
 	if err != nil {
@@ -155,4 +172,89 @@ func parseOld(fname string) ([]*api.SessionResource, error) {
 	}
 
 	return out, nil
+}
+
+func dbMigrateCommand(cmd *cobra.Command, _ []string) error {
+	dbPath, _ := cmd.Flags().GetString("database")
+	migrationsPath, _ := cmd.Flags().GetString("migrations")
+	down, _ := cmd.Flags().GetBool("down")
+	steps, _ := cmd.Flags().GetInt("steps")
+
+	dbURL := fmt.Sprintf("sqlite3://%s", dbPath)
+	migrationsURL := parseMigrationsURL(migrationsPath)
+
+	m, err := migrate.New(migrationsURL, dbURL)
+	if err != nil {
+		return fmt.Errorf("error creating migrate instance: %w", err)
+	}
+
+	if down {
+		if steps > 0 {
+			err = m.Steps(-steps)
+		} else {
+			err = m.Down()
+		}
+		if err != nil && err != migrate.ErrNoChange {
+			return fmt.Errorf("error running down migrations: %w", err)
+		}
+		fmt.Println("Down migrations completed successfully")
+	} else {
+		if steps > 0 {
+			err = m.Steps(steps)
+		} else {
+			err = m.Up()
+		}
+		if err != nil && err != migrate.ErrNoChange {
+			return fmt.Errorf("error running up migrations: %w", err)
+		}
+		fmt.Println("Up migrations completed successfully")
+	}
+
+	if err == migrate.ErrNoChange {
+		fmt.Println("No migrations to run")
+	}
+
+	return nil
+}
+
+func parseMigrationsURL(path string) string {
+	if path == "" {
+		return "github://calvinmclean/twchart/migrations#main"
+	}
+
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return convertGitHubURL(path)
+	}
+
+	if strings.HasPrefix(path, "github://") {
+		return path
+	}
+
+	return fmt.Sprintf("file://%s", path)
+}
+
+func convertGitHubURL(url string) string {
+	url = strings.TrimPrefix(url, "https://")
+	url = strings.TrimPrefix(url, "http://")
+	url = strings.TrimPrefix(url, "github.com/")
+
+	parts := strings.SplitN(url, "/", 4)
+	if len(parts) < 3 {
+		return url
+	}
+
+	owner := parts[0]
+	repo := parts[1]
+	ref := "main"
+	path := "migrations"
+
+	if len(parts) >= 4 && strings.HasPrefix(parts[2], "tree") {
+		pathParts := strings.SplitN(parts[3], "/", 2)
+		ref = pathParts[0]
+		if len(pathParts) > 1 {
+			path = pathParts[1]
+		}
+	}
+
+	return fmt.Sprintf("github://%s/%s/%s#%s", owner, repo, path, ref)
 }
