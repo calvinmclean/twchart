@@ -6,7 +6,7 @@ import (
 
 	"github.com/calvinmclean/twchart/storage/db"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 //go:generate sqlc generate
@@ -17,7 +17,7 @@ type Client struct {
 }
 
 func New(filename string) (*Client, error) {
-	database, err := sql.Open("sqlite3", filename)
+	database, err := sql.Open("sqlite", filename)
 	if err != nil {
 		return nil, err
 	}

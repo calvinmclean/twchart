@@ -12,7 +12,7 @@ import (
 	"github.com/calvinmclean/twchart/api"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/golang-migrate/migrate/v4/source/github"
 	"github.com/rs/xid"
@@ -180,7 +180,7 @@ func dbMigrateCommand(cmd *cobra.Command, _ []string) error {
 	down, _ := cmd.Flags().GetBool("down")
 	steps, _ := cmd.Flags().GetInt("steps")
 
-	dbURL := fmt.Sprintf("sqlite3://%s", dbPath)
+	dbURL := fmt.Sprintf("sqlite://%s", dbPath)
 	migrationsURL := parseMigrationsURL(migrationsPath)
 
 	m, err := migrate.New(migrationsURL, dbURL)
