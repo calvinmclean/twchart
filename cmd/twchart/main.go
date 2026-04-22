@@ -104,9 +104,11 @@ func migrateCommand(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("error setting up JSON storage: %w", err)
 		}
 
-		fromSessions, err = fromAPI.Storage.Search(ctx, "", nil)
-		if err != nil {
-			return fmt.Errorf("error reading sessions from JSON: %w", err)
+		for session, err := range fromAPI.Storage.Search(ctx, "", nil) {
+			if err != nil {
+				return fmt.Errorf("error reading sessions from JSON: %w", err)
+			}
+			fromSessions = append(fromSessions, session)
 		}
 	}
 

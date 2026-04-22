@@ -1,6 +1,8 @@
 module github.com/calvinmclean/twchart
 
-go 1.24.0
+go 1.26.2
+
+replace github.com/calvinmclean/babyapi => ../../../babyapi/.worktrees/babyapi-feature-iterator
 
 require (
 	github.com/calvinmclean/babyapi v0.31.0

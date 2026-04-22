@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"iter"
 	"net/url"
 	"time"
 
@@ -142,23 +143,26 @@ func (c storageAdapter) Get(ctx context.Context, id string) (*SessionResource, e
 	return resource, nil
 }
 
-func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) ([]*SessionResource, error) {
-	sessions, err := c.Queries.ListSessions(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error listing sessions: %w", err)
-	}
-
-	var resources []*SessionResource
-	for _, session := range sessions {
-		sessionResource, err := c.Get(ctx, session.ID)
+func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) iter.Seq2[*SessionResource, error] {
+	return func(yield func(*SessionResource, error) bool) {
+		sessions, err := c.Queries.ListSessions(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("error getting session: %w", err)
+			yield(nil, fmt.Errorf("error listing sessions: %w", err))
+			return
 		}
 
-		resources = append(resources, sessionResource)
-	}
+		for _, session := range sessions {
+			sessionResource, err := c.Get(ctx, session.ID)
+			if err != nil {
+				yield(nil, fmt.Errorf("error getting session: %w", err))
+				return
+			}
 
-	return resources, nil
+			if !yield(sessionResource, nil) {
+				return
+			}
+		}
+	}
 }
 
 func (c storageAdapter) Set(ctx context.Context, sessionResource *SessionResource) error {

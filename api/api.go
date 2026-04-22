@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"iter"
 	"log"
 	"net/http"
 	"path/filepath"
@@ -85,8 +86,15 @@ func New() *API {
 	api.API.AddCustomRootRoute(http.MethodGet, "/", http.RedirectHandler("/sessions", http.StatusFound))
 	api.API.AddCustomRoute(http.MethodPost, "/upload-csv", babyapi.Handler(api.loadCSVToLatestSession))
 	api.API.AddCustomIDRoute(http.MethodPost, "/upload-csv", api.GetRequestedResourceAndDo(api.loadCSVToSession))
-	api.SetSearchResponseWrapper(func(sr []*SessionResource) render.Renderer {
-		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*SessionResource]{Items: sr}}
+	api.SetSearchResponseWrapper(func(seq iter.Seq2[*SessionResource, error]) render.Renderer {
+		var sessions []*SessionResource
+		for session, err := range seq {
+			if err != nil {
+				return nil
+			}
+			sessions = append(sessions, session)
+		}
+		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*SessionResource]{Items: sessions}}
 	})
 	api.API.AddCustomIDRoute(http.MethodGet, "/chart", api.GetRequestedResourceAndDo(api.renderChart))
 	api.API.AddCustomIDRoute(http.MethodPost, "/add-event", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.Event](api)))
@@ -159,7 +167,7 @@ func sessionPartHandler[T twchart.SessionPart](a *API) func(http.ResponseWriter,
 			return nil, babyapi.InternalServerError(err)
 		}
 
-		logger := babyapi.GetLoggerFromContext(r.Context())
+		logger, _ := babyapi.GetLoggerFromContext(r.Context())
 
 		// use ServerSentEvents to provide live updates to the UI
 		sseChan, ok := a.sseChans[sr.GetID()]
@@ -225,13 +233,11 @@ func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) ren
 		// no real session is needed here since we just store the TW data
 		session = &SessionResource{Session: twchart.Session{ID: babyapi.ID{ID: sessionID}}}
 	} else {
-		allSessions, err := a.API.Storage.Search(r.Context(), "", nil)
-		if err != nil {
-			return babyapi.InternalServerError(err)
-		}
-
 		session = &SessionResource{Session: twchart.Session{UploadedAt: time.Time{}}}
-		for _, s := range allSessions {
+		for s, err := range a.API.Storage.Search(r.Context(), "", nil) {
+			if err != nil {
+				return babyapi.InternalServerError(err)
+			}
 			if s.Session.UploadedAt.After(session.Session.UploadedAt) {
 				session = s
 			}
