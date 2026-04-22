@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -83,6 +84,7 @@ func New() *API {
 	api.API = babyapi.NewAPI("Sessions", "/sessions", func() *SessionResource { return &SessionResource{} })
 	api.API.AddCustomRootRoute(http.MethodGet, "/", http.RedirectHandler("/sessions", http.StatusFound))
 	api.API.AddCustomRoute(http.MethodPost, "/upload-csv", babyapi.Handler(api.loadCSVToLatestSession))
+	api.API.AddCustomIDRoute(http.MethodPost, "/upload-csv", api.GetRequestedResourceAndDo(api.loadCSVToSession))
 	api.SetSearchResponseWrapper(func(sr []*SessionResource) render.Renderer {
 		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*SessionResource]{Items: sr}}
 	})
@@ -236,24 +238,48 @@ func (a *API) loadCSVToLatestSession(w http.ResponseWriter, r *http.Request) ren
 		}
 	}
 
-	err := session.LoadData(r.Body)
+	err := a.uploadCSVData(r.Context(), session, r.Body)
 	if err != nil {
 		return babyapi.ErrInvalidRequest(err)
 	}
 
-	if useSQL {
-		err = a.storageAdapter.storeThermoworksData(r.Context(), session.GetID(), session.Data)
-		if err != nil {
-			return babyapi.ErrInvalidRequest(err)
-		}
-	} else {
-		err = a.API.Storage.Set(r.Context(), session)
-		if err != nil {
-			return babyapi.InternalServerError(err)
-		}
+	w.WriteHeader(http.StatusOK)
+	return nil
+}
+
+func (a *API) loadCSVToSession(w http.ResponseWriter, r *http.Request, sr *SessionResource) (render.Renderer, *babyapi.ErrResponse) {
+	contentType := r.Header.Get("Content-Type")
+	if contentType != "text/csv" {
+		return nil, babyapi.ErrInvalidRequest(fmt.Errorf("unexpected Content-Type: %s", contentType))
+	}
+
+	err := a.uploadCSVData(r.Context(), sr, r.Body)
+	if err != nil {
+		return nil, babyapi.ErrInvalidRequest(err)
 	}
 
 	w.WriteHeader(http.StatusOK)
+	return nil, nil
+}
+
+func (a *API) uploadCSVData(ctx context.Context, session *SessionResource, reader io.Reader) error {
+	err := session.LoadData(reader)
+	if err != nil {
+		return fmt.Errorf("error loading CSV data: %w", err)
+	}
+
+	if a.storageAdapter.Client != nil {
+		err = a.storageAdapter.storeThermoworksData(ctx, session.GetID(), session.Data)
+		if err != nil {
+			return fmt.Errorf("error storing Thermoworks data: %w", err)
+		}
+	} else {
+		err = a.API.Storage.Set(ctx, session)
+		if err != nil {
+			return fmt.Errorf("error storing session: %w", err)
+		}
+	}
+
 	return nil
 }
 
