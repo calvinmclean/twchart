@@ -66,7 +66,7 @@ const (
         {{ if .Sessions }}
         <ul id="sessions-list" class="uk-list uk-list-divider uk-margin">
             {{ range .Sessions }}
-            <li class="uk-flex uk-flex-between uk-flex-middle session-item" data-type="{{ .Session.Type }}">
+            <li class="uk-flex uk-flex-between uk-flex-middle session-item">
                 <div>
                     <h3 class="uk-margin-remove">
                         <a class="uk-link-heading" href="/sessions/{{ .Session.ID }}">{{ .Session.Name }}</a>
@@ -90,13 +90,6 @@ const (
         {{ end }}
 
     </div>
-
-    <script>
-        // Keep the filter script for client-side filtering of current page
-        document.getElementById('type-filter').addEventListener('change', function() {
-            // HTMX will handle the navigation, this is just for UX
-        });
-    </script>
 
 </body>
 </html>
@@ -411,6 +404,11 @@ func (as allSessionsWrapper) HTML(w http.ResponseWriter, r *http.Request) string
 	// Get pagination params from context
 	params := getPaginationParams(r.Context())
 
+	// Sort sessions by start time
+	slices.SortFunc(as.sessions, func(a, b *SessionResource) int {
+		return b.Session.StartTime.Compare(a.Session.StartTime)
+	})
+
 	// Get total count from storage adapter
 	api := getAPIFromContext(r.Context())
 	if api != nil && api.storageAdapter.Client != nil {
@@ -421,12 +419,19 @@ func (as allSessionsWrapper) HTML(w http.ResponseWriter, r *http.Request) string
 	} else {
 		// For non-SQL storage, count the sessions
 		params.Total = int64(len(as.sessions))
-	}
 
-	// Sort sessions by start time
-	slices.SortFunc(as.sessions, func(a, b *SessionResource) int {
-		return b.Session.StartTime.Compare(a.Session.StartTime)
-	})
+		// Apply pagination slicing for non-SQL storage
+		start := params.Offset()
+		end := start + params.PerPage
+		if end > int64(len(as.sessions)) {
+			end = int64(len(as.sessions))
+		}
+		if start < int64(len(as.sessions)) {
+			as.sessions = as.sessions[start:end]
+		} else {
+			as.sessions = nil
+		}
+	}
 
 	data := SessionsListData{
 		Sessions:   as.sessions,

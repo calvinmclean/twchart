@@ -145,15 +145,12 @@ func (c storageAdapter) Get(ctx context.Context, id string) (*SessionResource, e
 
 func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) iter.Seq2[*SessionResource, error] {
 	return func(yield func(*SessionResource, error) bool) {
-		// Parse pagination params
-		page := parseInt64WithDefault(query.Get("page"), 1)
-		perPage := parseInt64WithDefault(query.Get("per_page"), defaultPageSize)
-		if perPage == 0 {
-			perPage = defaultPageSize
-		}
-		offset := (page - 1) * perPage
+		// Get pagination params from context (set by middleware)
+		params := getPaginationParams(ctx)
+		offset := params.Offset()
+		perPage := params.PerPage
 
-		// Parse type filter
+		// Parse type filter from query
 		sessionType := query.Get("type")
 
 		var sessions []db.Session
