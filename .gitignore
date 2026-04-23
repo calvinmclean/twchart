@@ -1,6 +1,6 @@
 chart.csv
 data/
 data.json
-data.db
+*.db
 AGENTS.md
 .worktrees/
