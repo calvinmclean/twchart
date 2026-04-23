@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/calvinmclean/twchart"
@@ -21,6 +22,112 @@ import (
 	"github.com/calvinmclean/babyapi/extensions"
 	"github.com/go-chi/render"
 )
+
+const defaultPageSize = 20
+
+// contextKey is used for storing pagination params in context
+type contextKey int
+
+const (
+	paginationKey contextKey = iota
+	apiKey
+)
+
+// PaginationParams holds pagination and filter parameters
+type PaginationParams struct {
+	Page    int64
+	PerPage int64
+	Type    string
+	Total   int64
+}
+
+func (p PaginationParams) Offset() int64 {
+	return (p.Page - 1) * p.PerPage
+}
+
+func (p PaginationParams) TotalPages() int64 {
+	if p.PerPage == 0 {
+		return 1
+	}
+	return (p.Total + p.PerPage - 1) / p.PerPage
+}
+
+func (p PaginationParams) HasPrev() bool {
+	return p.Page > 1
+}
+
+func (p PaginationParams) HasNext() bool {
+	return p.Page < p.TotalPages()
+}
+
+func (p PaginationParams) PrevPage() int64 {
+	if p.Page > 1 {
+		return p.Page - 1
+	}
+	return 1
+}
+
+func (p PaginationParams) NextPage() int64 {
+	if p.Page < p.TotalPages() {
+		return p.Page + 1
+	}
+	return p.TotalPages()
+}
+
+func (p PaginationParams) StartItem() int64 {
+	return p.Offset() + 1
+}
+
+func (p PaginationParams) EndItem() int64 {
+	end := p.Page * p.PerPage
+	if end > p.Total {
+		return p.Total
+	}
+	return end
+}
+
+func parseInt64WithDefault(s string, defaultVal int64) int64 {
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil || n < 0 {
+		return defaultVal
+	}
+	return n
+}
+
+// paginationMiddleware extracts pagination params from query and stores in context
+func (a *API) paginationMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		params := PaginationParams{
+			Page:    parseInt64WithDefault(query.Get("page"), 1),
+			PerPage: parseInt64WithDefault(query.Get("per_page"), defaultPageSize),
+			Type:    query.Get("type"),
+		}
+		if params.PerPage == 0 {
+			params.PerPage = defaultPageSize
+		}
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, paginationKey, params)
+		ctx = context.WithValue(ctx, apiKey, a)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// getAPIFromContext retrieves the API instance from context
+func getAPIFromContext(ctx context.Context) *API {
+	if api, ok := ctx.Value(apiKey).(*API); ok {
+		return api
+	}
+	return nil
+}
+
+// getPaginationParams retrieves pagination params from context
+func getPaginationParams(ctx context.Context) PaginationParams {
+	if params, ok := ctx.Value(paginationKey).(PaginationParams); ok {
+		return params
+	}
+	return PaginationParams{Page: 1, PerPage: defaultPageSize}
+}
 
 type SessionResource struct {
 	*babyapi.DefaultRenderer
@@ -86,6 +193,10 @@ func New() *API {
 	api.API.AddCustomRootRoute(http.MethodGet, "/", http.RedirectHandler("/sessions", http.StatusFound))
 	api.API.AddCustomRoute(http.MethodPost, "/upload-csv", babyapi.Handler(api.loadCSVToLatestSession))
 	api.API.AddCustomIDRoute(http.MethodPost, "/upload-csv", api.GetRequestedResourceAndDo(api.loadCSVToSession))
+
+	// Add pagination middleware to the search route
+	api.API.AddMiddleware(api.paginationMiddleware)
+
 	api.SetSearchResponseWrapper(func(seq iter.Seq2[*SessionResource, error]) render.Renderer {
 		var sessions []*SessionResource
 		for session, err := range seq {
@@ -94,7 +205,10 @@ func New() *API {
 			}
 			sessions = append(sessions, session)
 		}
-		return allSessionsWrapper{ResourceList: babyapi.ResourceList[*SessionResource]{Items: sessions}}
+		return allSessionsWrapper{
+			ResourceList: babyapi.ResourceList[*SessionResource]{Items: sessions},
+			sessions:     sessions,
+		}
 	})
 	api.API.AddCustomIDRoute(http.MethodGet, "/chart", api.GetRequestedResourceAndDo(api.renderChart))
 	api.API.AddCustomIDRoute(http.MethodPost, "/add-event", api.GetRequestedResourceAndDo(sessionPartHandler[twchart.Event](api)))

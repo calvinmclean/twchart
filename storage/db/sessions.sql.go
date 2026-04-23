@@ -11,6 +11,28 @@ import (
 	"time"
 )
 
+const countSessions = `-- name: CountSessions :one
+SELECT COUNT(*) FROM sessions
+`
+
+func (q *Queries) CountSessions(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSessions)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countSessionsByType = `-- name: CountSessionsByType :one
+SELECT COUNT(*) FROM sessions WHERE type = ?
+`
+
+func (q *Queries) CountSessionsByType(ctx context.Context, type_ string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countSessionsByType, type_)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createSession = `-- name: CreateSession :one
 INSERT INTO sessions (
     id, name, type, date, start_time, uploaded_at
@@ -98,10 +120,63 @@ func (q *Queries) GetSession(ctx context.Context, id string) (Session, error) {
 const listSessions = `-- name: ListSessions :many
 SELECT id, name, date, start_time, uploaded_at, created_at, updated_at, type FROM sessions
 ORDER BY uploaded_at DESC
+LIMIT ?
+OFFSET ?
 `
 
-func (q *Queries) ListSessions(ctx context.Context) ([]Session, error) {
-	rows, err := q.db.QueryContext(ctx, listSessions)
+type ListSessionsParams struct {
+	Limit  int64
+	Offset int64
+}
+
+func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]Session, error) {
+	rows, err := q.db.QueryContext(ctx, listSessions, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Session
+	for rows.Next() {
+		var i Session
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Date,
+			&i.StartTime,
+			&i.UploadedAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Type,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSessionsByType = `-- name: ListSessionsByType :many
+SELECT id, name, date, start_time, uploaded_at, created_at, updated_at, type FROM sessions
+WHERE type = ?
+ORDER BY uploaded_at DESC
+LIMIT ?
+OFFSET ?
+`
+
+type ListSessionsByTypeParams struct {
+	Type   string
+	Limit  int64
+	Offset int64
+}
+
+func (q *Queries) ListSessionsByType(ctx context.Context, arg ListSessionsByTypeParams) ([]Session, error) {
+	rows, err := q.db.QueryContext(ctx, listSessionsByType, arg.Type, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

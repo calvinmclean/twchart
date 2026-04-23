@@ -145,7 +145,33 @@ func (c storageAdapter) Get(ctx context.Context, id string) (*SessionResource, e
 
 func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) iter.Seq2[*SessionResource, error] {
 	return func(yield func(*SessionResource, error) bool) {
-		sessions, err := c.Queries.ListSessions(ctx)
+		// Parse pagination params
+		page := parseInt64WithDefault(query.Get("page"), 1)
+		perPage := parseInt64WithDefault(query.Get("per_page"), defaultPageSize)
+		if perPage == 0 {
+			perPage = defaultPageSize
+		}
+		offset := (page - 1) * perPage
+
+		// Parse type filter
+		sessionType := query.Get("type")
+
+		var sessions []db.Session
+		var err error
+
+		if sessionType != "" {
+			sessions, err = c.Queries.ListSessionsByType(ctx, db.ListSessionsByTypeParams{
+				Type:   sessionType,
+				Limit:  perPage,
+				Offset: offset,
+			})
+		} else {
+			sessions, err = c.Queries.ListSessions(ctx, db.ListSessionsParams{
+				Limit:  perPage,
+				Offset: offset,
+			})
+		}
+
 		if err != nil {
 			yield(nil, fmt.Errorf("error listing sessions: %w", err))
 			return
@@ -163,6 +189,14 @@ func (c storageAdapter) Search(ctx context.Context, parentID string, query url.V
 			}
 		}
 	}
+}
+
+// GetTotalCount returns the total number of sessions (optionally filtered by type)
+func (c storageAdapter) GetTotalCount(ctx context.Context, sessionType string) (int64, error) {
+	if sessionType != "" {
+		return c.Queries.CountSessionsByType(ctx, sessionType)
+	}
+	return c.Queries.CountSessions(ctx)
 }
 
 func (c storageAdapter) Set(ctx context.Context, sessionResource *SessionResource) error {

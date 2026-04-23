@@ -4,7 +4,22 @@ WHERE id = ?;
 
 -- name: ListSessions :many
 SELECT * FROM sessions
-ORDER BY uploaded_at DESC;
+ORDER BY uploaded_at DESC
+LIMIT ?
+OFFSET ?;
+
+-- name: ListSessionsByType :many
+SELECT * FROM sessions
+WHERE type = ?
+ORDER BY uploaded_at DESC
+LIMIT ?
+OFFSET ?;
+
+-- name: CountSessions :one
+SELECT COUNT(*) FROM sessions;
+
+-- name: CountSessionsByType :one
+SELECT COUNT(*) FROM sessions WHERE type = ?;
 
 -- name: CreateSession :one
 INSERT INTO sessions (
