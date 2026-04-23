@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"iter"
 	"net/url"
 	"time"
 
@@ -142,23 +143,57 @@ func (c storageAdapter) Get(ctx context.Context, id string) (*SessionResource, e
 	return resource, nil
 }
 
-func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) ([]*SessionResource, error) {
-	sessions, err := c.Queries.ListSessions(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error listing sessions: %w", err)
-	}
+func (c storageAdapter) Search(ctx context.Context, parentID string, query url.Values) iter.Seq2[*SessionResource, error] {
+	return func(yield func(*SessionResource, error) bool) {
+		// Get pagination params from context (set by middleware)
+		params := getPaginationParams(ctx)
+		offset := params.Offset()
+		perPage := params.PerPage
 
-	var resources []*SessionResource
-	for _, session := range sessions {
-		sessionResource, err := c.Get(ctx, session.ID)
-		if err != nil {
-			return nil, fmt.Errorf("error getting session: %w", err)
+		// Parse type filter from query
+		sessionType := query.Get("type")
+
+		var sessions []db.Session
+		var err error
+
+		if sessionType != "" {
+			sessions, err = c.Queries.ListSessionsByType(ctx, db.ListSessionsByTypeParams{
+				Type:   sessionType,
+				Limit:  perPage,
+				Offset: offset,
+			})
+		} else {
+			sessions, err = c.Queries.ListSessions(ctx, db.ListSessionsParams{
+				Limit:  perPage,
+				Offset: offset,
+			})
 		}
 
-		resources = append(resources, sessionResource)
-	}
+		if err != nil {
+			yield(nil, fmt.Errorf("error listing sessions: %w", err))
+			return
+		}
 
-	return resources, nil
+		for _, session := range sessions {
+			sessionResource, err := c.Get(ctx, session.ID)
+			if err != nil {
+				yield(nil, fmt.Errorf("error getting session: %w", err))
+				return
+			}
+
+			if !yield(sessionResource, nil) {
+				return
+			}
+		}
+	}
+}
+
+// GetTotalCount returns the total number of sessions (optionally filtered by type)
+func (c storageAdapter) GetTotalCount(ctx context.Context, sessionType string) (int64, error) {
+	if sessionType != "" {
+		return c.Queries.CountSessionsByType(ctx, sessionType)
+	}
+	return c.Queries.CountSessions(ctx)
 }
 
 func (c storageAdapter) Set(ctx context.Context, sessionResource *SessionResource) error {

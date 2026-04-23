@@ -1,9 +1,9 @@
 module github.com/calvinmclean/twchart
 
-go 1.24.0
+go 1.26.2
 
 require (
-	github.com/calvinmclean/babyapi v0.31.0
+	github.com/calvinmclean/babyapi v0.33.0
 	github.com/go-chi/render v1.0.3
 	github.com/go-echarts/go-echarts/v2 v2.5.4
 	github.com/golang-migrate/migrate/v4 v4.19.1

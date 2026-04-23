@@ -37,9 +37,10 @@ const (
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/css/uikit.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/uikit@3.19.2/dist/js/uikit-icons.min.js"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.8"></script>
 </head>
 <body class="uk-background-muted uk-padding">
-    <div class="uk-container uk-container-small">
+    <div class="uk-container uk-container-small" id="sessions-container">
 	    <ul class="uk-breadcrumb uk-margin-small-top">
 		    <li><a href="/sessions">Sessions</a></li>
 		    <li><span></span></li>
@@ -49,21 +50,23 @@ const (
             <h1 class="uk-heading-line"><span>Sessions</span></h1>
         </div>
 
-        <!-- Type Filter -->
+	<!-- Type Filter -->
         <div class="uk-margin uk-flex uk-flex-middle">
-            <select id="type-filter" class="uk-select uk-form-width-medium">
+            <select id="type-filter" name="type" class="uk-select uk-form-width-medium"
+                    hx-get="/sessions" hx-target="#sessions-container" hx-swap="outerHTML" hx-push-url="true"
+                    hx-headers='{"Accept": "text/html"}'>
                 <option value="">All Types</option>
-                {{ $types := getUniqueTypes . }}
+                {{ $types := getUniqueTypes .Sessions }}
                 {{ range $types }}
-                <option value="{{ . }}">{{ . }}</option>
+                <option value="{{ . }}" {{ if eq . $.Pagination.Type }}selected{{ end }}>{{ . }}</option>
                 {{ end }}
             </select>
         </div>
 
-        {{ if . }}
+        {{ if .Sessions }}
         <ul id="sessions-list" class="uk-list uk-list-divider uk-margin">
-            {{ range . }}
-            <li class="uk-flex uk-flex-between uk-flex-middle session-item" data-type="{{ .Session.Type }}">
+            {{ range .Sessions }}
+            <li class="uk-flex uk-flex-between uk-flex-middle session-item">
                 <div>
                     <h3 class="uk-margin-remove">
                         <a class="uk-link-heading" href="/sessions/{{ .Session.ID }}">{{ .Session.Name }}</a>
@@ -79,38 +82,79 @@ const (
             </li>
             {{ end }}
         </ul>
+
+        {{ template "pagination" . }}
+
         {{ else }}
         <p class="uk-text-center uk-text-muted">No sessions found.</p>
         {{ end }}
 
     </div>
 
-    <script>
-        document.getElementById('type-filter').addEventListener('change', function() {
-            var selectedType = this.value;
-            var items = document.querySelectorAll('.session-item');
-            var visibleCount = 0;
-
-            items.forEach(function(item) {
-                var itemType = item.getAttribute('data-type');
-                if (selectedType === '' || itemType === selectedType) {
-                    item.style.display = 'flex';
-                    visibleCount++;
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-
-            // Show/hide the "No sessions found" message
-            var noSessionsMsg = document.querySelector('.uk-text-center.uk-text-muted');
-            if (noSessionsMsg) {
-                noSessionsMsg.style.display = visibleCount === 0 ? 'block' : 'none';
-            }
-        });
-    </script>
-
 </body>
 </html>
+{{ end }}`
+
+	pagination         = html.Template("pagination")
+	paginationTemplate = `{{ define "pagination" }}
+{{ if gt .Pagination.TotalPages 1 }}
+<div class="uk-flex uk-flex-center uk-margin">
+    <ul class="uk-pagination">
+        <!-- Previous -->
+        {{ if .Pagination.HasPrev }}
+        <li>
+            <a hx-get="/sessions?page={{ .Pagination.PrevPage }}&per_page={{ .Pagination.PerPage }}{{ if .Pagination.Type }}&type={{ .Pagination.Type }}{{ end }}"
+               hx-target="#sessions-container"
+               hx-swap="outerHTML"
+               hx-push-url="true"
+               hx-headers='{"Accept": "text/html"}'>
+                <span uk-pagination-previous></span>
+            </a>
+        </li>
+        {{ else }}
+        <li class="uk-disabled"><span uk-pagination-previous></span></li>
+        {{ end }}
+
+        <!-- Page Numbers -->
+        {{ $pages := getPageRange .Pagination.Page .Pagination.TotalPages }}
+        {{ range $pages }}
+            {{ if eq . -1 }}
+            <li class="uk-disabled"><span>...</span></li>
+            {{ else if eq . $.Pagination.Page }}
+            <li class="uk-active"><span>{{ . }}</span></li>
+            {{ else }}
+            <li>
+                <a hx-get="/sessions?page={{ . }}&per_page={{ $.Pagination.PerPage }}{{ if $.Pagination.Type }}&type={{ $.Pagination.Type }}{{ end }}"
+                   hx-target="#sessions-container"
+                   hx-swap="outerHTML"
+                   hx-push-url="true"
+                   hx-headers='{"Accept": "text/html"}'>{{ . }}</a>
+            </li>
+            {{ end }}
+        {{ end }}
+
+        <!-- Next -->
+        {{ if .Pagination.HasNext }}
+        <li>
+            <a hx-get="/sessions?page={{ .Pagination.NextPage }}&per_page={{ .Pagination.PerPage }}{{ if .Pagination.Type }}&type={{ .Pagination.Type }}{{ end }}"
+               hx-target="#sessions-container"
+               hx-swap="outerHTML"
+               hx-push-url="true"
+               hx-headers='{"Accept": "text/html"}'>
+                <span uk-pagination-next></span>
+            </a>
+        </li>
+        {{ else }}
+        <li class="uk-disabled"><span uk-pagination-next></span></li>
+        {{ end }}
+    </ul>
+</div>
+
+<p class="uk-text-center uk-text-meta">
+    Page {{ .Pagination.Page }} of {{ .Pagination.TotalPages }} 
+    ({{ .Pagination.StartItem }} - {{ .Pagination.EndItem }} of {{ .Pagination.Total }} sessions)
+</p>
+{{ end }}
 {{ end }}`
 
 	stageRow         = html.Template("stageRow")
@@ -265,11 +309,13 @@ func init() {
 		string(chartView):     chartViewTemplate,
 		string(stageRow):      stageRowTemplate,
 		string(eventRow):      eventRowTemplate,
+		string(pagination):    paginationTemplate,
 	})
 
 	html.SetFuncs(func(r *http.Request) map[string]any {
 		return map[string]any{
 			"getUniqueTypes": getUniqueTypes,
+			"getPageRange":   getPageRange,
 			"sub": func(a, b int) int {
 				return a - b
 			},
@@ -300,18 +346,97 @@ func init() {
 	})
 }
 
+// getPageRange generates a smart list of page numbers for pagination display
+// Returns slice of page numbers, with -1 indicating ellipsis
+func getPageRange(currentPage, totalPages int64) []int64 {
+	if totalPages <= 5 {
+		// Show all pages if 5 or fewer
+		pages := make([]int64, totalPages)
+		for i := int64(0); i < totalPages; i++ {
+			pages[i] = i + 1
+		}
+		return pages
+	}
+
+	var pages []int64
+
+	// Always show first page
+	pages = append(pages, 1)
+
+	if currentPage <= 3 {
+		// Near the beginning: show 1, 2, 3, 4, ..., last
+		pages = append(pages, 2, 3, 4)
+		pages = append(pages, -1) // ellipsis
+	} else if currentPage >= totalPages-2 {
+		// Near the end: show 1, ..., last-3, last-2, last-1, last
+		pages = append(pages, -1) // ellipsis
+		pages = append(pages, totalPages-3, totalPages-2, totalPages-1)
+	} else {
+		// Middle: show 1, ..., current-1, current, current+1, ..., last
+		pages = append(pages, -1) // ellipsis
+		pages = append(pages, currentPage-1, currentPage, currentPage+1)
+		pages = append(pages, -1) // ellipsis
+	}
+
+	// Always show last page
+	pages = append(pages, totalPages)
+
+	return pages
+}
+
+// SessionsListData holds the data for rendering the sessions list template
+type SessionsListData struct {
+	Sessions   []*SessionResource
+	Pagination PaginationParams
+}
+
 // allSessionsWrapper allows rendering an HTML page that lists all charts
 type allSessionsWrapper struct {
 	babyapi.ResourceList[*SessionResource]
+	sessions []*SessionResource
 }
 
 func (as allSessionsWrapper) Render(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (as allSessionsWrapper) HTML(_ http.ResponseWriter, r *http.Request) string {
-	slices.SortFunc(as.Items, func(a, b *SessionResource) int {
+func (as allSessionsWrapper) HTML(w http.ResponseWriter, r *http.Request) string {
+	// Get pagination params from context
+	params := getPaginationParams(r.Context())
+
+	// Sort sessions by start time
+	slices.SortFunc(as.sessions, func(a, b *SessionResource) int {
 		return b.Session.StartTime.Compare(a.Session.StartTime)
 	})
-	return listSessions.Render(r, as.Items)
+
+	// Get total count from storage adapter
+	api := getAPIFromContext(r.Context())
+	if api != nil && api.storageAdapter.Client != nil {
+		total, err := api.storageAdapter.GetTotalCount(r.Context(), params.Type)
+		if err == nil {
+			params.Total = total
+		}
+	} else {
+		// For non-SQL storage, count the sessions
+		params.Total = int64(len(as.sessions))
+
+		// Apply pagination slicing for non-SQL storage
+		start := params.Offset()
+		end := start + params.PerPage
+		if end > int64(len(as.sessions)) {
+			end = int64(len(as.sessions))
+		}
+		if start < int64(len(as.sessions)) {
+			as.sessions = as.sessions[start:end]
+		} else {
+			as.sessions = nil
+		}
+	}
+
+	data := SessionsListData{
+		Sessions:   as.sessions,
+		Pagination: params,
+	}
+
+	return listSessions.Render(r, data)
 }
