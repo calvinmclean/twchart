@@ -50,10 +50,11 @@ const (
             <h1 class="uk-heading-line"><span>Sessions</span></h1>
         </div>
 
-        <!-- Type Filter -->
+	<!-- Type Filter -->
         <div class="uk-margin uk-flex uk-flex-middle">
             <select id="type-filter" name="type" class="uk-select uk-form-width-medium"
-                    hx-get="/sessions" hx-target="#sessions-container" hx-swap="outerHTML" hx-push-url="true">
+                    hx-get="/sessions" hx-target="#sessions-container" hx-swap="outerHTML" hx-push-url="true"
+                    hx-headers='{"Accept": "text/html"}'>
                 <option value="">All Types</option>
                 {{ $types := getUniqueTypes .Sessions }}
                 {{ range $types }}
@@ -112,7 +113,8 @@ const (
             <a hx-get="/sessions?page={{ .Pagination.PrevPage }}&per_page={{ .Pagination.PerPage }}{{ if .Pagination.Type }}&type={{ .Pagination.Type }}{{ end }}"
                hx-target="#sessions-container"
                hx-swap="outerHTML"
-               hx-push-url="true">
+               hx-push-url="true"
+               hx-headers='{"Accept": "text/html"}'>
                 <span uk-pagination-previous></span>
             </a>
         </li>
@@ -132,7 +134,8 @@ const (
                 <a hx-get="/sessions?page={{ . }}&per_page={{ $.Pagination.PerPage }}{{ if $.Pagination.Type }}&type={{ $.Pagination.Type }}{{ end }}"
                    hx-target="#sessions-container"
                    hx-swap="outerHTML"
-                   hx-push-url="true">{{ . }}</a>
+                   hx-push-url="true"
+                   hx-headers='{"Accept": "text/html"}'>{{ . }}</a>
             </li>
             {{ end }}
         {{ end }}
@@ -143,7 +146,8 @@ const (
             <a hx-get="/sessions?page={{ .Pagination.NextPage }}&per_page={{ .Pagination.PerPage }}{{ if .Pagination.Type }}&type={{ .Pagination.Type }}{{ end }}"
                hx-target="#sessions-container"
                hx-swap="outerHTML"
-               hx-push-url="true">
+               hx-push-url="true"
+               hx-headers='{"Accept": "text/html"}'>
                 <span uk-pagination-next></span>
             </a>
         </li>

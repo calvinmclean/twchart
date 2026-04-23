@@ -23,7 +23,7 @@ import (
 	"github.com/go-chi/render"
 )
 
-const defaultPageSize = 20
+const defaultPageSize = 10
 
 // contextKey is used for storing pagination params in context
 type contextKey int
