@@ -5,7 +5,7 @@ WORKDIR /build
 ENV CGO_ENABLED=1
 RUN go build -o twchart ./cmd/twchart/main.go
 
-FROM debian:bullseye-slim AS production
+FROM debian:trixie-slim AS production
 
 RUN apt-get update && apt-get install -y \
     ca-certificates \
