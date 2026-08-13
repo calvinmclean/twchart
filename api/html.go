@@ -1,8 +1,10 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/calvinmclean/babyapi"
@@ -170,10 +172,11 @@ const (
     <span>{{ .Event.Note }}</span>
     <span class="uk-text-meta">
         {{ .Event.Time.Format "3:04PM" }}
+        {{ $sinceStart := .Event.Time.Sub .SessionStartTime }}
         {{ if not (isZeroTime .PrevEventTime) }}
-            <span class="uk-text-muted">(+{{ .Event.Time.Sub .PrevEventTime | formatDuration }})</span>
+            <span class="uk-text-muted">(+{{ .Event.Time.Sub .PrevEventTime | formatDuration }}{{ if and (not (isZeroTime .SessionStartTime)) (isPositiveDuration $sinceStart) }} | {{ $sinceStart | formatDuration }} elapsed{{ end }})</span>
         {{ else if not (isZeroTime .SessionStartTime) }}
-            <span class="uk-text-muted">(+{{ .Event.Time.Sub .SessionStartTime | formatDuration }})</span>
+            <span class="uk-text-muted">(+{{ $sinceStart | formatDuration }})</span>
         {{ end }}
     </span>
 </li>
@@ -302,6 +305,37 @@ const (
 {{ end }}`
 )
 
+// formatDuration returns a human-readable representation of a duration,
+// omitting zero units (e.g. "3m" instead of "3m0s").
+func formatDuration(d time.Duration) string {
+	if d < 0 {
+		return "-" + formatDuration(-d)
+	}
+
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+	milliseconds := int(d.Milliseconds()) % 1000
+
+	var parts []string
+	if hours > 0 {
+		parts = append(parts, fmt.Sprintf("%dh", hours))
+	}
+	if minutes > 0 {
+		parts = append(parts, fmt.Sprintf("%dm", minutes))
+	}
+	if seconds > 0 {
+		parts = append(parts, fmt.Sprintf("%ds", seconds))
+	}
+	if milliseconds > 0 {
+		parts = append(parts, fmt.Sprintf("%dms", milliseconds))
+	}
+	if len(parts) == 0 {
+		return "0s"
+	}
+	return strings.Join(parts, "")
+}
+
 func init() {
 	html.SetMap(map[string]string{
 		string(sessionDetail): sessionDetailTemplate,
@@ -339,8 +373,9 @@ func init() {
 			"isZeroTime": func(t time.Time) bool {
 				return t.IsZero()
 			},
-			"formatDuration": func(d time.Duration) string {
-				return d.String()
+			"formatDuration": formatDuration,
+			"isPositiveDuration": func(d time.Duration) bool {
+				return d > 0
 			},
 		}
 	})
